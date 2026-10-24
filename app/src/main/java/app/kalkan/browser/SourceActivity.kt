@@ -33,6 +33,7 @@ class SourceActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_URL = "url"
         const val EXTRA_UA = "ua"
+        const val EXTRA_FETCH = "fetch"
         const val LIVE_FILE = "live.html"
         const val ORIG_FILE = "orig.html"
 
@@ -46,6 +47,7 @@ class SourceActivity : AppCompatActivity() {
     private var file = LIVE_FILE
     private var wrap = false
     private var lastQuery = ""
+    private var fetchOnly = false
 
     private val permLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) download() else toast("Depolama izni verilmedi")
@@ -79,7 +81,11 @@ class SourceActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = true
         }
         setContentView(FrameLayout(this).apply { addView(web) })
-        render()
+        fetchOnly = intent.getBooleanExtra(EXTRA_FETCH, false)
+        if (fetchOnly) {
+            File(dir(this), ORIG_FILE).delete()
+            fetchOriginal()
+        } else render()
     }
 
     override fun onDestroy() {
@@ -88,7 +94,11 @@ class SourceActivity : AppCompatActivity() {
     }
 
     private fun render() {
-        supportActionBar?.subtitle = (if (file == LIVE_FILE) "Canlı DOM · " else "Orijinal · ") + host
+        supportActionBar?.subtitle = when {
+            fetchOnly -> Uri.parse(pageUrl).lastPathSegment ?: host
+            file == LIVE_FILE -> "Canlı DOM · $host"
+            else -> "Orijinal · $host"
+        }
         web.loadUrl("https://${MainActivity.ASSET_HOST}/assets/source.html?f=$file&w=${if (wrap) 1 else 0}&t=${System.currentTimeMillis()}")
         invalidateOptionsMenu()
     }
@@ -102,7 +112,7 @@ class SourceActivity : AppCompatActivity() {
         menu.add(0, 4, 3, "Kodda ara")
         menu.add(0, 5, 4, "Sonraki eşleşme")
         menu.add(0, 6, 5, if (wrap) "Satır kaydırmayı kapat" else "Satırları kaydır")
-        menu.add(0, 7, 6, if (file == LIVE_FILE) "Orijinal kaynağı göster" else "Canlı DOM'u göster")
+        if (!fetchOnly) menu.add(0, 7, 6, if (file == LIVE_FILE) "Orijinal kaynağı göster" else "Canlı DOM'u göster")
         return true
     }
 
@@ -139,10 +149,11 @@ class SourceActivity : AppCompatActivity() {
     private fun download() {
         val src = currentFile()
         if (!src.exists()) { toast("Kaynak bulunamadı"); return }
-        val name = Saver.sanitize(host) + (if (file == LIVE_FILE) "-dom" else "-kaynak") + ".html"
+        val name = if (fetchOnly) Saver.sanitize(Uri.parse(pageUrl).lastPathSegment ?: host)
+            else Saver.sanitize(host) + (if (file == LIVE_FILE) "-dom" else "-kaynak") + ".html"
         Thread {
             val msg = try {
-                Saver.save(this, name, "text/html") { o -> src.inputStream().use { it.copyTo(o) } }
+                Saver.save(this, name, if (name.endsWith(".html")) "text/html" else "text/plain") { o -> src.inputStream().use { it.copyTo(o) } }
                 "Kaydedildi: İndirilenler/Kalkan/$name"
             } catch (e: Exception) {
                 "Kaydedilemedi: ${e.message}"
@@ -188,8 +199,12 @@ class SourceActivity : AppCompatActivity() {
 
     private fun toggleSource() {
         if (file == ORIG_FILE) { file = LIVE_FILE; render(); return }
+        fetchOriginal()
+    }
+
+    private fun fetchOriginal() {
         val orig = File(dir(this), ORIG_FILE)
-        toast("Orijinal kaynak indiriliyor…")
+        toast("Kaynak indiriliyor…")
         Thread {
             val err = try {
                 val c = URL(pageUrl).openConnection() as HttpURLConnection

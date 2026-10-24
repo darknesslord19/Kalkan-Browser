@@ -104,7 +104,8 @@ class MainActivity : AppCompatActivity() {
         var desktop = false
         var favicon: Bitmap? = null
         var pendingUrl: String? = null
-        val media = LinkedHashMap<String, MediaItem>()
+        val res = LinkedHashMap<String, MediaItem>()
+        @Volatile var mediaCount = 0
     }
 
     private val tabs = ArrayList<Tab>()
@@ -706,7 +707,7 @@ class MainActivity : AppCompatActivity() {
             if (!url.startsWith("http")) return
             val kind = (try { MediaSniffer.classify(Uri.parse(url)) } catch (_: Exception) { null })
                 ?: if (tag == "audio") MediaSniffer.AUDIO else MediaSniffer.VIDEO
-            addMedia(tab, url, kind, referer)
+            addResource(tab, url, kind, MediaSniffer.CAT_MEDIA, referer)
         }
 
         @JavascriptInterface
@@ -756,8 +757,6 @@ class MainActivity : AppCompatActivity() {
             tab.blocked = 0
             tab.favicon = favicon
             tab.title = ""
-            synchronized(tab.media) { tab.media.clear() }
-            if (tab === current) updateMediaBtn()
             if (!docStartSupported) view.evaluateJavascript(Scripts.CONTENT, null)
             if (tab === current) { updateUrlBar(); updateShield(); updateNav() }
         }
@@ -784,9 +783,7 @@ class MainActivity : AppCompatActivity() {
         override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
             val u = request.url
             if (u.host == ASSET_HOST) return assetLoader.shouldInterceptRequest(u)
-            MediaSniffer.classify(u)?.let { kind ->
-                addMedia(tab, u.toString(), kind, request.requestHeaders["Referer"] ?: tab.url)
-            }
+            val rec = try { recordResource(tab, request) } catch (_: Exception) { null }
             if (request.isForMainFrame) return null
             val scheme = u.scheme ?: return null
             if (scheme != "http" && scheme != "https") return null
@@ -797,6 +794,7 @@ class MainActivity : AppCompatActivity() {
             return try {
                 if (FilterManager.engine.shouldBlock(u.toString(), host, page, typeOf(request))) {
                     tab.blocked++
+                    rec?.blocked = true
                     Store.addBlocked()
                     if (tab === current) postShield()
                     emptyResponse
@@ -1075,22 +1073,50 @@ class MainActivity : AppCompatActivity() {
     }
 
     // =====================================================================
-    // Medya yakalayıcı
+    // Media Sniffer — sayfanın yüklediği tüm kaynaklar
     // =====================================================================
 
-    private fun addMedia(tab: Tab, url: String, kind: String, referer: String?) {
-        val added = synchronized(tab.media) {
-            if (tab.media.containsKey(url) || tab.media.size >= 200) false
-            else {
-                tab.media[url] = MediaItem(url, kind, referer)
-                true
+    private fun recordResource(tab: Tab, request: WebResourceRequest): MediaItem? {
+        val u = request.url
+        val scheme = u.scheme ?: return null
+        if (scheme != "http" && scheme != "https") return null
+        if (request.isForMainFrame) {
+            synchronized(tab.res) { tab.res.clear(); tab.mediaCount = 0 }
+            if (tab === current) ui.post { updateMediaBtn() }
+        }
+        val accept = request.requestHeaders["Accept"] ?: request.requestHeaders["accept"] ?: ""
+        val (label, cat) = MediaSniffer.describe(u, accept, request.isForMainFrame)
+        val referer = request.requestHeaders["Referer"] ?: tab.url
+        return addResource(tab, u.toString(), label, cat, referer)
+    }
+
+    private fun addResource(tab: Tab, url: String, kind: String, cat: Int, referer: String?): MediaItem {
+        var newMedia = false
+        val item = synchronized(tab.res) {
+            val existing = tab.res[url]
+            if (existing != null && cat == MediaSniffer.CAT_MEDIA && !existing.isMedia) tab.res.remove(url)
+            if (existing != null && tab.res.containsKey(url)) {
+                existing.time = System.currentTimeMillis()
+                existing
+            } else {
+                if (tab.res.size >= 1500) {
+                    val it = tab.res.entries.iterator()
+                    val first = it.next().value
+                    it.remove()
+                    if (first.isMedia) tab.mediaCount--
+                }
+                val m = MediaItem(url, kind, referer, cat)
+                tab.res[url] = m
+                if (m.isMedia) { tab.mediaCount++; newMedia = true }
+                m
             }
         }
-        if (added && tab === current) ui.post { updateMediaBtn() }
+        if (newMedia && tab === current) ui.post { updateMediaBtn() }
+        return item
     }
 
     private fun updateMediaBtn() {
-        val n = current?.let { synchronized(it.media) { it.media.size } } ?: 0
+        val n = current?.mediaCount ?: 0
         mediaBtn.visibility = if (n > 0) View.VISIBLE else View.GONE
         mediaBadge.text = if (n > 99) "99+" else n.toString()
     }
@@ -1104,110 +1130,322 @@ class MainActivity : AppCompatActivity() {
         } else action()
     }
 
-    private fun mediaMeta(m: MediaItem): String {
-        val parts = ArrayList<String>()
-        parts.add(if (m.isStream) "${m.kind} akışı" else m.kind)
-        if (!m.isStream) m.mime?.substringBefore(';')?.substringAfter('/')?.uppercase()?.let { if (it.length <= 8) parts.add(it) }
-        MediaSniffer.formatSize(m.size).takeIf { it.isNotEmpty() }?.let { parts.add(it) }
-        parts.add(hostOf(m.url))
-        return parts.joinToString(" · ")
+    private fun styledUrl(url: String): CharSequence {
+        val muted = mutedColor()
+        val strong = textColor()
+        val schemeEnd = url.indexOf("://").let { if (it < 0) 0 else it + 3 }
+        val hostEnd = url.indexOf('/', schemeEnd).let { if (it < 0) url.length else it }
+        val sp = android.text.SpannableString(url)
+        sp.setSpan(android.text.style.ForegroundColorSpan(muted), 0, url.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        if (hostEnd > schemeEnd) {
+            sp.setSpan(android.text.style.ForegroundColorSpan(strong), schemeEnd, hostEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return sp
     }
 
     private fun showMedia() {
         val t = current ?: return
-        val items = synchronized(t.media) { t.media.values.toList() }
-            .sortedWith(compareBy<MediaItem> { if (it.kind == MediaSniffer.HLS) 0 else if (it.kind == MediaSniffer.VIDEO) 1 else 2 })
-        if (items.isEmpty()) {
-            toast("Bu sayfada medya bulunamadı — videoyu oynatmayı dene")
-            return
-        }
+        var filter = if (t.mediaCount > 0) MediaSniffer.CAT_MEDIA else MediaSniffer.CAT_ALL
+        var query = ""
         val d = BottomSheetDialog(this)
-        val box = LinearLayout(this).apply {
+        val ua = currentUA()
+        val brand = ContextCompat.getColor(this, R.color.brand)
+
+        val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(14), dp(12), dp(16))
+            setPadding(0, dp(12), 0, 0)
         }
-        box.addView(TextView(this).apply {
-            text = "Yakalanan medya (${items.size})"
-            textSize = 18f
+
+        // Başlık satırı
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(22), 0, dp(10), dp(6))
+        }
+        header.addView(TextView(this).apply {
+            text = "Media Sniffer"
+            textSize = 24f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
             setTextColor(textColor())
-            setPadding(dp(8), 0, 0, dp(2))
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        fun headBtn(icon: Int, desc: String) = ImageButton(this).apply {
+            setImageResource(icon)
+            setBackgroundResource(selectableBg())
+            contentDescription = desc
+            imageTintList = ColorStateList.valueOf(textColor())
+        }
+        val searchBtn = headBtn(R.drawable.ic_search, "Ara")
+        val mediaOnlyBtn = headBtn(R.drawable.ic_movie, "Sadece medya")
+        val clearBtn = headBtn(R.drawable.ic_delete, "Listeyi temizle")
+        header.addView(searchBtn, LinearLayout.LayoutParams(dp(46), dp(46)))
+        header.addView(mediaOnlyBtn, LinearLayout.LayoutParams(dp(46), dp(46)))
+        header.addView(clearBtn, LinearLayout.LayoutParams(dp(46), dp(46)))
+        root.addView(header)
+
+        val search = EditText(this).apply {
+            hint = "Adreste ara (örn. m3u8, .js, cdn)"
+            setSingleLine()
+            textSize = 14f
+            setBackgroundResource(R.drawable.bg_url)
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+            setTextColor(textColor())
+            setHintTextColor(mutedColor())
+            visibility = View.GONE
+        }
+        root.addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            marginStart = dp(16); marginEnd = dp(16); bottomMargin = dp(6)
         })
-        box.addView(TextView(this).apply {
-            text = "Dokunarak indir veya harici oynatıcıda aç. Liste, oynattıkça dolar."
-            textSize = 12.5f
+
+        // Kategori çipleri
+        val chipScroll = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
+        val chips = com.google.android.material.chip.ChipGroup(this).apply {
+            isSingleLine = true
+            setPadding(dp(16), 0, dp(16), 0)
+        }
+        chipScroll.addView(chips)
+        root.addView(chipScroll)
+
+        root.addView(View(this).apply { setBackgroundColor(ContextCompat.getColor(context, R.color.field)) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply { topMargin = dp(6) })
+
+        val empty = TextView(this).apply {
+            gravity = Gravity.CENTER
             setTextColor(mutedColor())
-            setPadding(dp(8), 0, dp(8), dp(10))
-        })
+            setPadding(dp(24), dp(40), dp(24), dp(40))
+            visibility = View.GONE
+        }
+        root.addView(empty)
+
         val rv = RecyclerView(this)
         rv.layoutManager = LinearLayoutManager(this)
-        val ua = currentUA()
+        rv.clipToPadding = false
+        rv.setPadding(dp(16), dp(12), dp(16), dp(24))
+        root.addView(rv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (resources.displayMetrics.heightPixels * 0.72).toInt()))
+
+        var items: List<MediaItem> = emptyList()
+
+        fun snapshot(): List<MediaItem> = synchronized(t.res) { t.res.values.toList() }
+
+        fun matches(m: MediaItem): Boolean {
+            val catOk = when (filter) {
+                MediaSniffer.CAT_ALL -> true
+                MediaSniffer.CAT_BLOCKED -> m.blocked
+                else -> m.category == filter && !m.blocked
+            }
+            return catOk && (query.isEmpty() || m.url.contains(query, true))
+        }
+
         val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun getItemCount() = items.size
+
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-                val row = LinearLayout(parent.context).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(12), dp(10), dp(4), dp(10))
+                val card = LinearLayout(parent.context).apply {
+                    orientation = LinearLayout.VERTICAL
                     setBackgroundResource(R.drawable.bg_tile)
+                    setPadding(dp(16), dp(8), dp(8), dp(16))
+                    isClickable = true
                     layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                        bottomMargin = dp(6)
+                        bottomMargin = dp(12)
                     }
                 }
-                val icon = ImageView(parent.context).apply { imageTintList = ColorStateList.valueOf(textColor()) }
-                row.addView(icon, LinearLayout.LayoutParams(dp(24), dp(24)))
-                val col = LinearLayout(parent.context).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(dp(12), 0, dp(8), 0)
+                val top = LinearLayout(parent.context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
                 }
-                val t1 = TextView(parent.context).apply { textSize = 14.5f; maxLines = 1; setTextColor(textColor()) }
-                val t2 = TextView(parent.context).apply { textSize = 12f; maxLines = 1; setTextColor(mutedColor()) }
-                col.addView(t1); col.addView(t2)
-                row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                val dl = ImageButton(parent.context).apply {
-                    setImageResource(R.drawable.ic_download)
+                val icon = ImageView(parent.context)
+                top.addView(icon, LinearLayout.LayoutParams(dp(22), dp(22)))
+                val label = TextView(parent.context).apply {
+                    textSize = 15f
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    setPadding(dp(10), 0, 0, 0)
+                }
+                top.addView(label)
+                val time = TextView(parent.context).apply {
+                    textSize = 13f
+                    setTextColor(mutedColor())
+                    setPadding(dp(10), 0, 0, 0)
+                    maxLines = 1
+                }
+                top.addView(time, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                fun action(iconRes: Int, desc: String) = ImageButton(parent.context).apply {
+                    setImageResource(iconRes)
                     setBackgroundResource(selectableBg())
-                    contentDescription = "İndir"
+                    contentDescription = desc
+                    imageTintList = ColorStateList.valueOf(textColor())
+                    scaleType = ImageView.ScaleType.CENTER
                 }
-                row.addView(dl, LinearLayout.LayoutParams(dp(44), dp(44)))
-                row.tag = arrayOf<View>(icon, t1, t2, dl)
-                return object : RecyclerView.ViewHolder(row) {}
+                val copyB = action(R.drawable.ic_copy, "Kopyala")
+                val shareB = action(R.drawable.ic_share, "Paylaş")
+                val dlB = action(R.drawable.ic_download, "İndir")
+                top.addView(copyB, LinearLayout.LayoutParams(dp(42), dp(42)))
+                top.addView(shareB, LinearLayout.LayoutParams(dp(42), dp(42)))
+                top.addView(dlB, LinearLayout.LayoutParams(dp(42), dp(42)))
+                card.addView(top)
+                val urlView = TextView(parent.context).apply {
+                    textSize = 13.5f
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    setPadding(0, dp(8), dp(8), 0)
+                }
+                card.addView(urlView)
+                card.tag = arrayOf<View>(icon, label, time, copyB, shareB, dlB, urlView)
+                return object : RecyclerView.ViewHolder(card) {}
             }
 
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
                 val m = items[position]
                 @Suppress("UNCHECKED_CAST")
                 val v = holder.itemView.tag as Array<View>
-                (v[0] as ImageView).setImageResource(if (m.kind == MediaSniffer.AUDIO) R.drawable.ic_music else R.drawable.ic_movie)
-                (v[1] as TextView).text = m.name
-                (v[2] as TextView).text = mediaMeta(m)
-                holder.itemView.setOnClickListener { d.dismiss(); mediaActions(m) }
-                v[3].setOnClickListener { d.dismiss(); downloadMedia(m) }
-                if (!m.probed) MediaSniffer.probe(m, ua) {
+                val tint = if (m.blocked) Color.parseColor("#E5484D") else textColor()
+                (v[0] as ImageView).apply {
+                    setImageResource(MediaSniffer.iconOf(m))
+                    imageTintList = ColorStateList.valueOf(if (m.isMedia && !m.blocked) brand else tint)
+                }
+                (v[1] as TextView).apply {
+                    text = if (m.blocked) "${m.kind} · ENGELLENDİ" else m.kind
+                    setTextColor(tint)
+                }
+                val rel = android.text.format.DateUtils.getRelativeTimeSpanString(
+                    m.time, System.currentTimeMillis(), android.text.format.DateUtils.SECOND_IN_MILLIS
+                )
+                val size = MediaSniffer.formatSize(m.size)
+                (v[2] as TextView).text = if (size.isNotEmpty()) "$rel · $size" else rel
+                v[3].setOnClickListener { copy(m.url) }
+                v[4].setOnClickListener { share(m.url) }
+                v[5].setOnClickListener { downloadMedia(m) }
+                (v[6] as TextView).text = styledUrl(m.url)
+                holder.itemView.setOnClickListener { resourceActions(m, d) }
+                holder.itemView.setOnLongClickListener { copy(m.url); true }
+                if (m.isMedia && !m.probed) MediaSniffer.probe(m, ua) {
                     val idx = items.indexOf(m)
                     if (idx >= 0) notifyItemChanged(idx)
                 }
             }
         }
         rv.adapter = adapter
-        box.addView(rv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        d.setContentView(box)
-        d.behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.65).toInt()
+
+        fun refreshChips() {
+            val all = snapshot()
+            chips.removeAllViews()
+            for ((cat, name) in MediaSniffer.CATEGORY_NAMES) {
+                val count = when (cat) {
+                    MediaSniffer.CAT_ALL -> all.size
+                    MediaSniffer.CAT_BLOCKED -> all.count { it.blocked }
+                    else -> all.count { it.category == cat && !it.blocked }
+                }
+                if (count == 0 && cat != MediaSniffer.CAT_ALL && cat != filter) continue
+                chips.addView(com.google.android.material.chip.Chip(this).apply {
+                    text = "$name $count"
+                    isCheckable = true
+                    isChecked = cat == filter
+                    setOnClickListener {
+                        filter = cat
+                        refreshChipsAndList()
+                    }
+                })
+            }
+            mediaOnlyBtn.imageTintList = ColorStateList.valueOf(if (filter == MediaSniffer.CAT_MEDIA) brand else textColor())
+        }
+
+        fun refreshList() {
+            items = snapshot().filter { matches(it) }.asReversed()
+            empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+            empty.text = when {
+                snapshot().isEmpty() -> "Henüz kaynak yok — sayfayı yenile veya bir videoyu oynat."
+                filter == MediaSniffer.CAT_MEDIA -> "Bu sayfada medya bulunamadı.\nVideoyu oynatmayı dene ya da \"Tümü\" sekmesine bak."
+                else -> "Bu filtrede kaynak yok."
+            }
+            adapter.notifyDataSetChanged()
+        }
+
+        refreshChipsAndListHolder = {
+            refreshChips()
+            refreshList()
+        }
+
+        searchBtn.setOnClickListener {
+            if (search.visibility == View.VISIBLE) {
+                search.setText("")
+                search.visibility = View.GONE
+            } else {
+                search.visibility = View.VISIBLE
+                showKeyboard(search)
+            }
+        }
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                query = s?.toString()?.trim() ?: ""
+                refreshList()
+            }
+        })
+        mediaOnlyBtn.setOnClickListener {
+            filter = if (filter == MediaSniffer.CAT_MEDIA) MediaSniffer.CAT_ALL else MediaSniffer.CAT_MEDIA
+            refreshChipsAndList()
+        }
+        clearBtn.setOnClickListener {
+            synchronized(t.res) { t.res.clear(); t.mediaCount = 0 }
+            updateMediaBtn()
+            refreshChipsAndList()
+        }
+
+        refreshChipsAndList()
+
+        // Liste açıkken canlı güncelle
+        var lastSize = snapshot().size
+        val ticker = object : Runnable {
+            override fun run() {
+                val n = snapshot().size
+                if (n != lastSize) {
+                    lastSize = n
+                    refreshChipsAndList()
+                } else if (items.isNotEmpty()) {
+                    adapter.notifyItemRangeChanged(0, minOf(items.size, 30))
+                }
+                ui.postDelayed(this, 2000)
+            }
+        }
+        ui.postDelayed(ticker, 2000)
+        d.setOnDismissListener {
+            ui.removeCallbacks(ticker)
+            refreshChipsAndListHolder = null
+        }
+
+        d.setContentView(root)
+        d.behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.85).toInt()
+        d.behavior.state = BottomSheetBehavior.STATE_EXPANDED
         d.show()
     }
 
-    private fun mediaActions(m: MediaItem) {
-        val labels = arrayOf("İndir", "Harici oynatıcıda aç", "Yeni sekmede oynat", "Bağlantıyı kopyala", "Paylaş")
+    private var refreshChipsAndListHolder: (() -> Unit)? = null
+    private fun refreshChipsAndList() { refreshChipsAndListHolder?.invoke() }
+
+    private fun resourceActions(m: MediaItem, sheet: BottomSheetDialog) {
+        val labels = ArrayList<String>()
+        val acts = ArrayList<() -> Unit>()
+        if (m.isMedia) {
+            labels.add("İndir"); acts.add { downloadMedia(m) }
+            labels.add("Harici oynatıcıda aç"); acts.add { openExternal(m) }
+            labels.add("Yeni sekmede oynat"); acts.add { sheet.dismiss(); newTab(m.url, current?.incognito ?: false) }
+        } else {
+            if (m.isCode) { labels.add("Kodu görüntüle"); acts.add { openCode(m) } }
+            labels.add("Yeni sekmede aç"); acts.add { sheet.dismiss(); newTab(m.url, current?.incognito ?: false) }
+            labels.add("İndir"); acts.add { downloadMedia(m) }
+        }
+        labels.add("Bağlantıyı kopyala"); acts.add { copy(m.url) }
+        labels.add("Paylaş"); acts.add { share(m.url) }
         MaterialAlertDialogBuilder(this)
             .setTitle(m.name)
-            .setItems(labels) { _, w ->
-                when (w) {
-                    0 -> downloadMedia(m)
-                    1 -> openExternal(m)
-                    2 -> newTab(m.url, current?.incognito ?: false)
-                    3 -> copy(m.url)
-                    4 -> share(m.url)
-                }
-            }.show()
+            .setItems(labels.toTypedArray()) { _, w -> acts[w]() }
+            .show()
+    }
+
+    private fun openCode(m: MediaItem) {
+        startActivity(Intent(this, SourceActivity::class.java)
+            .putExtra(SourceActivity.EXTRA_URL, m.url)
+            .putExtra(SourceActivity.EXTRA_UA, currentUA())
+            .putExtra(SourceActivity.EXTRA_FETCH, true))
     }
 
     private fun downloadMedia(m: MediaItem) {
@@ -1399,7 +1637,7 @@ class MainActivity : AppCompatActivity() {
         val url = t?.url ?: ""
         val isPage = t != null && url.startsWith("http") && !isHome(url)
         val bookmarked = isPage && Store.isBookmarked(url)
-        val mediaCount = t?.let { synchronized(it.media) { it.media.size } } ?: 0
+        val mediaCount = t?.mediaCount ?: 0
 
         tile(R.drawable.ic_add, "Yeni sekme") { newTab(HOME_URL, false) }
         tile(R.drawable.ic_incognito, "Gizli sekme") { newTab(HOME_URL, true) }
@@ -1411,7 +1649,7 @@ class MainActivity : AppCompatActivity() {
 
         tile(R.drawable.ic_history, "Geçmiş") { openLibrary(LibraryActivity.MODE_HISTORY) }
         tile(R.drawable.ic_download, "İndirilenler") { openDownloads() }
-        tile(R.drawable.ic_movie, "Medya", mediaCount) { showMedia() }
+        tile(R.drawable.ic_movie, "Media Sniffer", mediaCount) { showMedia() }
         tile(R.drawable.ic_save, "Sayfayı kaydet") { if (isPage) savePage(t!!) else toast("Bu sayfa kaydedilemez") }
 
         tile(R.drawable.ic_code, "Kaynak kodu") { if (isPage) viewSource(t!!) else toast("Önce bir site aç") }

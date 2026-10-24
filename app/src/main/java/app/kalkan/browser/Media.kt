@@ -30,18 +30,28 @@ import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-/** Sayfada yakalanan medya. */
-class MediaItem(val url: String, val kind: String, val referer: String?) {
+/** Sayfanın yüklediği bir kaynak (medya, betik, stil, font, resim...). */
+class MediaItem(
+    val url: String,
+    val kind: String,
+    val referer: String?,
+    val category: Int = MediaSniffer.CAT_MEDIA
+) {
     @Volatile var size: Long = -1
     @Volatile var mime: String? = null
     @Volatile var probed = false
+    @Volatile var time: Long = System.currentTimeMillis()
+    @Volatile var blocked = false
 
     val name: String
         get() = try {
-            Uri.decode(Uri.parse(url).lastPathSegment ?: "medya")
-        } catch (_: Exception) { "medya" }
+            Uri.decode(Uri.parse(url).lastPathSegment ?: Uri.parse(url).host ?: "kaynak")
+        } catch (_: Exception) { "kaynak" }
 
     val isStream get() = kind == MediaSniffer.HLS || kind == MediaSniffer.DASH
+    val isMedia get() = category == MediaSniffer.CAT_MEDIA
+    val isCode get() = category == MediaSniffer.CAT_SCRIPT || category == MediaSniffer.CAT_STYLE ||
+        category == MediaSniffer.CAT_DOC || kind == "JSON" || kind == "XML" || kind == "M3U8"
 }
 
 object MediaSniffer {
@@ -50,8 +60,25 @@ object MediaSniffer {
     const val HLS = "HLS"
     const val DASH = "DASH"
 
+    const val CAT_ALL = -1
+    const val CAT_MEDIA = 0
+    const val CAT_IMAGE = 1
+    const val CAT_SCRIPT = 2
+    const val CAT_STYLE = 3
+    const val CAT_FONT = 4
+    const val CAT_DOC = 5
+    const val CAT_OTHER = 6
+    const val CAT_BLOCKED = 7
+
+    val CATEGORY_NAMES = linkedMapOf(
+        CAT_ALL to "Tümü", CAT_MEDIA to "Medya", CAT_IMAGE to "Resim", CAT_SCRIPT to "JS",
+        CAT_STYLE to "CSS", CAT_FONT to "Font", CAT_DOC to "Belge", CAT_OTHER to "Diğer", CAT_BLOCKED to "Engellenen"
+    )
+
     private val VIDEO_EXT = listOf(".mp4", ".webm", ".mkv", ".mov", ".m4v", ".3gp", ".flv", ".avi")
     private val AUDIO_EXT = listOf(".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac")
+    private val IMAGE_EXT = setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "avif", "bmp")
+    private val FONT_EXT = setOf("woff", "woff2", "ttf", "otf", "eot")
 
     fun classify(u: Uri): String? {
         val host = u.host ?: return null
@@ -64,6 +91,40 @@ object MediaSniffer {
             AUDIO_EXT.any { p.endsWith(it) } -> AUDIO
             else -> null
         }
+    }
+
+    /** Kaynağın etiketi ve kategorisi. */
+    fun describe(u: Uri, accept: String, mainFrame: Boolean): Pair<String, Int> {
+        classify(u)?.let { return Pair(it, CAT_MEDIA) }
+        val last = (u.lastPathSegment ?: "").lowercase()
+        val ext = last.substringAfterLast('.', "").takeIf { it.length in 1..5 && it.all { c -> c.isLetterOrDigit() } } ?: ""
+        return when {
+            mainFrame -> Pair("HTML", CAT_DOC)
+            ext == "js" || ext == "mjs" -> Pair("JS", CAT_SCRIPT)
+            ext == "css" -> Pair("CSS", CAT_STYLE)
+            ext in FONT_EXT -> Pair(ext.uppercase(), CAT_FONT)
+            ext in IMAGE_EXT -> Pair(ext.uppercase(), CAT_IMAGE)
+            ext == "ts" || ext == "m4s" -> Pair("PARÇA", CAT_OTHER)
+            ext == "json" -> Pair("JSON", CAT_OTHER)
+            ext == "xml" -> Pair("XML", CAT_OTHER)
+            ext == "html" || ext == "htm" || ext == "php" || ext == "aspx" -> Pair("HTML", CAT_DOC)
+            ext == "pdf" -> Pair("PDF", CAT_DOC)
+            accept.startsWith("image/") -> Pair("RESİM", CAT_IMAGE)
+            accept.startsWith("text/css") -> Pair("CSS", CAT_STYLE)
+            accept.startsWith("text/html") -> Pair("HTML", CAT_DOC)
+            else -> Pair("URL", CAT_OTHER)
+        }
+    }
+
+    fun iconOf(m: MediaItem): Int = when {
+        m.blocked -> R.drawable.ic_block
+        m.kind == AUDIO -> R.drawable.ic_music
+        m.category == CAT_MEDIA -> R.drawable.ic_movie
+        m.category == CAT_IMAGE -> R.drawable.ic_image
+        m.category == CAT_SCRIPT || m.category == CAT_STYLE || m.kind == "JSON" -> R.drawable.ic_braces
+        m.category == CAT_FONT -> R.drawable.ic_font
+        m.category == CAT_DOC -> R.drawable.ic_doc
+        else -> R.drawable.ic_link
     }
 
     fun mimeOf(item: MediaItem): String = item.mime?.substringBefore(';')?.trim()?.takeIf { it.contains('/') } ?: when (item.kind) {
