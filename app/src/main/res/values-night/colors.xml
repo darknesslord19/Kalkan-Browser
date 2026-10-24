@@ -1,0 +1,6 @@
+<resources>
+    <color name="bar">#14161C</color>
+    <color name="onBar">#E6E8EE</color>
+    <color name="field">#22252E</color>
+    <color name="muted">#8C92A0</color>
+</resources>

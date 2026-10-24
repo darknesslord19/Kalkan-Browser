@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="theme_names">
+        <item>Sistem</item>
+        <item>Koyu</item>
+        <item>Açık</item>
+    </string-array>
+    <string-array name="theme_values">
+        <item>system</item>
+        <item>dark</item>
+        <item>light</item>
+    </string-array>
+    <string-array name="zoom_names">
+        <item>Çok küçük</item>
+        <item>Küçük</item>
+        <item>Normal</item>
+        <item>Büyük</item>
+        <item>Daha büyük</item>
+        <item>Çok büyük</item>
+    </string-array>
+    <string-array name="zoom_values">
+        <item>80</item>
+        <item>90</item>
+        <item>100</item>
+        <item>115</item>
+        <item>130</item>
+        <item>150</item>
+    </string-array>
+</resources>

@@ -1,0 +1,26 @@
+<resources>
+    <style name="Theme.Kalkan" parent="Theme.Material3.DayNight">
+        <item name="colorPrimary">@color/brand</item>
+        <item name="colorOnPrimary">#1A1205</item>
+        <item name="colorPrimaryContainer">@color/brand</item>
+        <item name="colorOnPrimaryContainer">#1A1205</item>
+        <item name="colorSecondary">@color/brand</item>
+        <item name="colorAccent">@color/brand</item>
+        <item name="android:statusBarColor">@color/bar</item>
+        <item name="android:navigationBarColor">@color/bar</item>
+        <item name="android:windowLightStatusBar">@bool/light_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/light_bars</item>
+    </style>
+    <style name="Theme.Kalkan.Browser" parent="Theme.Kalkan">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/bar</item>
+    </style>
+    <style name="BarButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+        <item name="android:scaleType">center</item>
+    </style>
+</resources>

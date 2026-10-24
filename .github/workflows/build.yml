@@ -1,0 +1,60 @@
+name: APK Derle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: APK derle
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: APK'yi adlandir
+        run: cp app/build/outputs/apk/release/app-release.apk "Kalkan-v1.0.${{ github.run_number }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kalkan-APK
+          path: Kalkan-*.apk
+
+      - name: Surum yayinla
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Kalkan v1.0.${{ github.run_number }}
+          body: "Kalkan tarayıcı — APK dosyasını indirip telefonuna kur."
+          files: Kalkan-*.apk
+          make_latest: true
+
+      - name: Hata gunlugunu kaydet
+        if: failure()
+        run: |
+          mkdir -p /tmp/ci && cp build.log /tmp/ci/build.log || echo "log yok" > /tmp/ci/build.log
+          grep -nE "^e: |error:|What went wrong|FAILURE|Could not|Unresolved|> " /tmp/ci/build.log | head -300 > /tmp/ci/errors.txt || true
+          git config user.name "kalkan-ci"
+          git config user.email "kalkan-ci@users.noreply.github.com"
+          git checkout --orphan ci-log
+          git rm -rf . -q
+          cp /tmp/ci/build.log /tmp/ci/errors.txt .
+          git add build.log errors.txt
+          git commit -qm "Derleme günlüğü #${{ github.run_number }}"
+          git push -f origin ci-log

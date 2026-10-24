@@ -1,0 +1,10 @@
+<resources>
+    <color name="brand">#F5A524</color>
+    <color name="brand_dark">#C07E0A</color>
+    <color name="launcher_bg">#14161C</color>
+    <color name="bar">#FFFFFF</color>
+    <color name="onBar">#1C1F26</color>
+    <color name="field">#EEF0F4</color>
+    <color name="muted">#6B7180</color>
+    <color name="incognito">#2A2140</color>
+</resources>

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="Genel" app:iconSpaceReserved="false">
+        <ListPreference
+            app:key="search_engine"
+            app:title="Arama motoru"
+            app:defaultValue="google"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            app:key="theme"
+            app:title="Tema"
+            app:defaultValue="system"
+            app:entries="@array/theme_names"
+            app:entryValues="@array/theme_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            app:key="text_zoom"
+            app:title="Yazı boyutu"
+            app:defaultValue="100"
+            app:entries="@array/zoom_names"
+            app:entryValues="@array/zoom_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="restore_tabs"
+            app:title="Sekmeleri geri yükle"
+            app:summary="Uygulama açıldığında son sekmeler açılır"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="pull_refresh"
+            app:title="Çekerek yenile"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="desktop_default"
+            app:title="Yeni sekmeler masaüstü sitesi açsın"
+            app:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <Preference
+            app:key="default_browser"
+            app:title="Varsayılan tarayıcı yap"
+            app:summary="Android ayarlarında Kalkan'ı seç"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Gizlilik ve güvenlik" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            app:key="adblock"
+            app:title="Reklam ve izleyici engelleme"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="popup_block"
+            app:title="Açılır pencereleri engelle"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="block_3p_cookies"
+            app:title="Üçüncü taraf çerezleri engelle"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="javascript"
+            app:title="JavaScript"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <Preference
+            app:key="allowlist"
+            app:title="Korumanın kapalı olduğu siteler"
+            app:iconSpaceReserved="false" />
+        <Preference
+            app:key="clear_data"
+            app:title="Tarama verilerini temizle"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Medya" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            app:key="bg_play"
+            app:title="Arka planda oynat"
+            app:summary="Uygulamadan çıkınca video/müzik çalmaya devam eder"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="force_dark"
+            app:title="Siteleri koyu göster"
+            app:summary="Koyu temada siteleri otomatik karartır"
+            app:defaultValue="false"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="VPN ve sistem geneli koruma" app:iconSpaceReserved="false">
+        <Preference
+            app:key="vpn"
+            app:title="VPN ve DNS koruması"
+            app:summary="WireGuard VPN ve tüm uygulamalarda reklam engelleme"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            app:key="dns_upstream"
+            app:title="DNS sunucusu"
+            app:defaultValue="1.1.1.1"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="cat_lists"
+        app:title="Filtre listeleri"
+        app:iconSpaceReserved="false" />
+
+    <PreferenceCategory app:title="Hakkında" app:iconSpaceReserved="false">
+        <Preference
+            app:key="about"
+            app:title="Kalkan Tarayıcı"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+</PreferenceScreen>
