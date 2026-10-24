@@ -70,7 +70,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.ProfileStore
-import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -434,9 +433,9 @@ class MainActivity : AppCompatActivity() {
         s.javaScriptEnabled = Store.bool("javascript", true)
         s.javaScriptCanOpenWindowsAutomatically = !Store.bool("popup_block", true)
         s.textZoom = Store.str("text_zoom", "100").toIntOrNull() ?: 100
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+        if (Build.VERSION.SDK_INT >= 33) {
             try {
-                WebSettingsCompat.setAlgorithmicDarkening(s, Store.bool("force_dark", false))
+                s.isAlgorithmicDarkeningAllowed = Store.bool("force_dark", false)
             } catch (_: Exception) {
             }
         }

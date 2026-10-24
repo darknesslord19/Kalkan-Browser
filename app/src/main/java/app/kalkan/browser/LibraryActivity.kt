@@ -102,7 +102,9 @@ class LibraryActivity : AppCompatActivity() {
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
                 val e = items[position]
                 @Suppress("UNCHECKED_CAST")
-                val (t1, t2) = holder.itemView.tag as Pair<TextView, TextView>
+                val pair = holder.itemView.tag as Pair<TextView, TextView>
+                val t1 = pair.first
+                val t2 = pair.second
                 t1.text = e.title.ifEmpty { e.url }
                 val u = e.url.removePrefix("https://").removePrefix("http://")
                 t2.text = if (mode == MODE_HISTORY) "${fmt.format(Date(e.time))} · $u" else u
