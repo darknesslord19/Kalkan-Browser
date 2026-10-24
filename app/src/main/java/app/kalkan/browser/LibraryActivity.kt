@@ -64,7 +64,7 @@ class LibraryActivity : AppCompatActivity() {
         }
         root.addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         empty = TextView(this).apply {
-            text = if (mode == MODE_HISTORY) "Geçmiş boş" else "Henüz yer imi yok.\nMenüden ☆ Yer imi ekle'ye dokun."
+            text = if (mode == MODE_HISTORY) "Geçmiş boş" else "Henüz yer imi yok.\nMenüden \"Yer imi ekle\"ye dokun."
             gravity = Gravity.CENTER
             setPadding(0, dp(48), 0, 0)
             setTextColor(ContextCompat.getColor(context, R.color.muted))

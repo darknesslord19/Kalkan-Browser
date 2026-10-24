@@ -77,6 +77,36 @@
                     android:textColorHint="@color/muted"
                     android:textSize="15sp" />
 
+                <FrameLayout
+                    android:id="@+id/mediaBtn"
+                    android:layout_width="44dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Medya"
+                    android:visibility="gone">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_movie" />
+
+                    <TextView
+                        android:id="@+id/mediaBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="16dp"
+                        android:layout_gravity="end|top"
+                        android:layout_marginTop="5dp"
+                        android:background="@drawable/bg_badge"
+                        android:gravity="center"
+                        android:minWidth="16dp"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:textColor="#1A1205"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </FrameLayout>
+
                 <ImageButton
                     android:id="@+id/reloadBtn"
                     android:layout_width="48dp"

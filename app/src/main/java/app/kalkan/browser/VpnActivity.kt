@@ -70,7 +70,7 @@ class VpnActivity : AppCompatActivity() {
         // ---------------- DNS kartı ----------------
         val dnsCard = card()
         val dnsBox = dnsCard.getChildAt(0) as LinearLayout
-        dnsBox.addView(heading("🛡️ Sistem geneli reklam engelleme"))
+        dnsBox.addView(heading("Sistem geneli reklam engelleme"))
         dnsBox.addView(body("Telefondaki TÜM uygulamalarda (oyunlar, sosyal medya, diğer tarayıcılar) reklam ve izleyici alan adlarını engeller. Sunucu gerekmez; yalnızca DNS sorguları süzülür, internet hızın etkilenmez."))
         dnsStatus = body("").also { it.setPadding(0, dp(10), 0, 0) }
         dnsStats = body("")
@@ -85,7 +85,7 @@ class VpnActivity : AppCompatActivity() {
         // ---------------- WireGuard kartı ----------------
         val wgCard = card()
         val wgBox = wgCard.getChildAt(0) as LinearLayout
-        wgBox.addView(heading("🔐 WireGuard VPN"))
+        wgBox.addView(heading("WireGuard VPN"))
         wgBox.addView(body("IP adresini gizler ve tüm trafiği şifreler. Bir VPN sağlayıcısından (ör. Proton VPN, Mullvad, kendi sunucun) indirdiğin WireGuard .conf dosyasını içe aktar."))
         wgStatus = body("").also { it.setPadding(0, dp(10), 0, 0) }
         wgInfo = body("")

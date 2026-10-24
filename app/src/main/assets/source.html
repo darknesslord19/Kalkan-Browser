@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaynak</title>
+<style>
+  :root { --bg:#fbfbfc; --fg:#24292f; --ln:#9aa0aa; --gut:#f0f1f4; --tag:#116329; --attr:#0550ae; --str:#a40e26; --com:#6e7781; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1116; --fg:#d6d9e0; --ln:#5c6370; --gut:#161a21; --tag:#7ee787; --attr:#79c0ff; --str:#ffa198; --com:#8b949e; }
+  }
+  html, body { margin:0; background:var(--bg); color:var(--fg); }
+  body { font: 12.5px/1.6 ui-monospace, "Roboto Mono", "Droid Sans Mono", monospace; }
+  .wrap { display:flex; min-width:max-content; }
+  .g { background:var(--gut); color:var(--ln); text-align:right; padding:8px 10px; white-space:pre;
+       -webkit-user-select:none; user-select:none; position:sticky; left:0; }
+  pre { margin:0; padding:8px 14px; white-space:pre; font:inherit; }
+  body.w .wrap { min-width:0; }
+  body.w pre { white-space:pre-wrap; word-break:break-all; }
+  body.w .g { display:none; }
+  .t { color:var(--tag); } .a { color:var(--attr); } .s { color:var(--str); } .c { color:var(--com); font-style:italic; }
+  #info { padding:48px 20px; text-align:center; color:var(--ln); font-family:system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div id="info">Yükleniyor…</div>
+<div class="wrap" id="wrap" hidden><div class="g" id="g"></div><pre id="code"></pre></div>
+<script>
+  var q = new URLSearchParams(location.search);
+  if (q.get('w') === '1') document.body.classList.add('w');
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function hl(src){
+    if (src.length > 2500000) return esc(src);
+    var re = /(<!--[\s\S]*?-->)|(<\/?[A-Za-z][\w:-]*)|(\s[\w:@.-]+)(?==)|("[^"\n]*"|'[^'\n]*')/g;
+    var out = [], last = 0, m;
+    while ((m = re.exec(src))) {
+      out.push(esc(src.slice(last, m.index)));
+      var cls = m[1] ? 'c' : m[2] ? 't' : m[3] ? 'a' : 's';
+      out.push('<span class="' + cls + '">' + esc(m[0]) + '</span>');
+      last = re.lastIndex;
+    }
+    out.push(esc(src.slice(last)));
+    return out.join('');
+  }
+  fetch('/src/' + q.get('f') + '?t=' + Date.now())
+    .then(function(r){ if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(function(t){
+      var n = t.split('\n').length, g = [];
+      for (var i = 1; i <= n; i++) g.push(i);
+      document.getElementById('g').textContent = g.join('\n');
+      document.getElementById('code').innerHTML = hl(t);
+      document.getElementById('info').remove();
+      document.getElementById('wrap').hidden = false;
+    })
+    .catch(function(e){ document.getElementById('info').textContent = 'Kaynak yüklenemedi: ' + e.message; });
+</script>
+</body>
+</html>

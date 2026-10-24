@@ -104,6 +104,7 @@ class MainActivity : AppCompatActivity() {
         var desktop = false
         var favicon: Bitmap? = null
         var pendingUrl: String? = null
+        val media = LinkedHashMap<String, MediaItem>()
     }
 
     private val tabs = ArrayList<Tab>()
@@ -127,6 +128,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var forwardBtn: ImageButton
     private lateinit var tabsCount: TextView
     private lateinit var fullscreen: FrameLayout
+    private lateinit var mediaBtn: View
+    private lateinit var mediaBadge: TextView
 
     private lateinit var assetLoader: WebViewAssetLoader
     private val ui = Handler(Looper.getMainLooper())
@@ -181,6 +184,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val filterListener: () -> Unit = { updateShield() }
+
+    private val notifLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     // =====================================================================
     // Yaşam döngüsü
@@ -249,6 +254,8 @@ class MainActivity : AppCompatActivity() {
         forwardBtn = findViewById(R.id.forwardBtn)
         tabsCount = findViewById(R.id.tabsCount)
         fullscreen = findViewById(R.id.fullscreen)
+        mediaBtn = findViewById(R.id.mediaBtn)
+        mediaBadge = findViewById(R.id.mediaBadge)
     }
 
     // =====================================================================
@@ -286,6 +293,7 @@ class MainActivity : AppCompatActivity() {
             if (t.progress < 100) t.webView.stopLoading() else t.webView.reload()
         }
         findViewById<View>(R.id.shieldBtn).setOnClickListener { showShield() }
+        mediaBtn.setOnClickListener { showMedia() }
         backBtn.setOnClickListener { current?.webView?.let { if (it.canGoBack()) it.goBack() } }
         forwardBtn.setOnClickListener { current?.webView?.let { if (it.canGoForward()) it.goForward() } }
         findViewById<View>(R.id.homeBtn).setOnClickListener { loadInCurrent(HOME_URL) }
@@ -525,7 +533,7 @@ class MainActivity : AppCompatActivity() {
     // =====================================================================
 
     private fun updateAll() {
-        updateUrlBar(); updateNav(); updateProgress(); updateShield(); updateTabCount()
+        updateUrlBar(); updateNav(); updateProgress(); updateShield(); updateTabCount(); updateMediaBtn()
     }
 
     private fun isHome(url: String) = url.startsWith(HOME_URL)
@@ -694,6 +702,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun media(url: String, tag: String, referer: String) {
+            if (!url.startsWith("http")) return
+            val kind = (try { MediaSniffer.classify(Uri.parse(url)) } catch (_: Exception) { null })
+                ?: if (tag == "audio") MediaSniffer.AUDIO else MediaSniffer.VIDEO
+            addMedia(tab, url, kind, referer)
+        }
+
+        @JavascriptInterface
         fun specific(host: String): String = try {
             FilterManager.engine.specificCss(host.lowercase())
         } catch (_: Exception) { "" }
@@ -740,6 +756,8 @@ class MainActivity : AppCompatActivity() {
             tab.blocked = 0
             tab.favicon = favicon
             tab.title = ""
+            synchronized(tab.media) { tab.media.clear() }
+            if (tab === current) updateMediaBtn()
             if (!docStartSupported) view.evaluateJavascript(Scripts.CONTENT, null)
             if (tab === current) { updateUrlBar(); updateShield(); updateNav() }
         }
@@ -766,6 +784,9 @@ class MainActivity : AppCompatActivity() {
         override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
             val u = request.url
             if (u.host == ASSET_HOST) return assetLoader.shouldInterceptRequest(u)
+            MediaSniffer.classify(u)?.let { kind ->
+                addMedia(tab, u.toString(), kind, request.requestHeaders["Referer"] ?: tab.url)
+            }
             if (request.isForMainFrame) return null
             val scheme = u.scheme ?: return null
             if (scheme != "http" && scheme != "https") return null
@@ -1054,6 +1075,262 @@ class MainActivity : AppCompatActivity() {
     }
 
     // =====================================================================
+    // Medya yakalayıcı
+    // =====================================================================
+
+    private fun addMedia(tab: Tab, url: String, kind: String, referer: String?) {
+        val added = synchronized(tab.media) {
+            if (tab.media.containsKey(url) || tab.media.size >= 200) false
+            else {
+                tab.media[url] = MediaItem(url, kind, referer)
+                true
+            }
+        }
+        if (added && tab === current) ui.post { updateMediaBtn() }
+    }
+
+    private fun updateMediaBtn() {
+        val n = current?.let { synchronized(it.media) { it.media.size } } ?: 0
+        mediaBtn.visibility = if (n > 0) View.VISIBLE else View.GONE
+        mediaBadge.text = if (n > 99) "99+" else n.toString()
+    }
+
+    private fun currentUA(): String = current?.webView?.settings?.userAgentString ?: mobileUA
+
+    private fun ensureStorage(action: () -> Unit) {
+        if (Saver.needsPermission(this)) {
+            pendingAction = action
+            permLauncher.launch(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE))
+        } else action()
+    }
+
+    private fun mediaMeta(m: MediaItem): String {
+        val parts = ArrayList<String>()
+        parts.add(if (m.isStream) "${m.kind} akışı" else m.kind)
+        if (!m.isStream) m.mime?.substringBefore(';')?.substringAfter('/')?.uppercase()?.let { if (it.length <= 8) parts.add(it) }
+        MediaSniffer.formatSize(m.size).takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+        parts.add(hostOf(m.url))
+        return parts.joinToString(" · ")
+    }
+
+    private fun showMedia() {
+        val t = current ?: return
+        val items = synchronized(t.media) { t.media.values.toList() }
+            .sortedWith(compareBy<MediaItem> { if (it.kind == MediaSniffer.HLS) 0 else if (it.kind == MediaSniffer.VIDEO) 1 else 2 })
+        if (items.isEmpty()) {
+            toast("Bu sayfada medya bulunamadı — videoyu oynatmayı dene")
+            return
+        }
+        val d = BottomSheetDialog(this)
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(14), dp(12), dp(16))
+        }
+        box.addView(TextView(this).apply {
+            text = "Yakalanan medya (${items.size})"
+            textSize = 18f
+            setTextColor(textColor())
+            setPadding(dp(8), 0, 0, dp(2))
+        })
+        box.addView(TextView(this).apply {
+            text = "Dokunarak indir veya harici oynatıcıda aç. Liste, oynattıkça dolar."
+            textSize = 12.5f
+            setTextColor(mutedColor())
+            setPadding(dp(8), 0, dp(8), dp(10))
+        })
+        val rv = RecyclerView(this)
+        rv.layoutManager = LinearLayoutManager(this)
+        val ua = currentUA()
+        val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+            override fun getItemCount() = items.size
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+                val row = LinearLayout(parent.context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(12), dp(10), dp(4), dp(10))
+                    setBackgroundResource(R.drawable.bg_tile)
+                    layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                        bottomMargin = dp(6)
+                    }
+                }
+                val icon = ImageView(parent.context).apply { imageTintList = ColorStateList.valueOf(textColor()) }
+                row.addView(icon, LinearLayout.LayoutParams(dp(24), dp(24)))
+                val col = LinearLayout(parent.context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(12), 0, dp(8), 0)
+                }
+                val t1 = TextView(parent.context).apply { textSize = 14.5f; maxLines = 1; setTextColor(textColor()) }
+                val t2 = TextView(parent.context).apply { textSize = 12f; maxLines = 1; setTextColor(mutedColor()) }
+                col.addView(t1); col.addView(t2)
+                row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                val dl = ImageButton(parent.context).apply {
+                    setImageResource(R.drawable.ic_download)
+                    setBackgroundResource(selectableBg())
+                    contentDescription = "İndir"
+                }
+                row.addView(dl, LinearLayout.LayoutParams(dp(44), dp(44)))
+                row.tag = arrayOf<View>(icon, t1, t2, dl)
+                return object : RecyclerView.ViewHolder(row) {}
+            }
+
+            override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+                val m = items[position]
+                @Suppress("UNCHECKED_CAST")
+                val v = holder.itemView.tag as Array<View>
+                (v[0] as ImageView).setImageResource(if (m.kind == MediaSniffer.AUDIO) R.drawable.ic_music else R.drawable.ic_movie)
+                (v[1] as TextView).text = m.name
+                (v[2] as TextView).text = mediaMeta(m)
+                holder.itemView.setOnClickListener { d.dismiss(); mediaActions(m) }
+                v[3].setOnClickListener { d.dismiss(); downloadMedia(m) }
+                if (!m.probed) MediaSniffer.probe(m, ua) {
+                    val idx = items.indexOf(m)
+                    if (idx >= 0) notifyItemChanged(idx)
+                }
+            }
+        }
+        rv.adapter = adapter
+        box.addView(rv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        d.setContentView(box)
+        d.behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.65).toInt()
+        d.show()
+    }
+
+    private fun mediaActions(m: MediaItem) {
+        val labels = arrayOf("İndir", "Harici oynatıcıda aç", "Yeni sekmede oynat", "Bağlantıyı kopyala", "Paylaş")
+        MaterialAlertDialogBuilder(this)
+            .setTitle(m.name)
+            .setItems(labels) { _, w ->
+                when (w) {
+                    0 -> downloadMedia(m)
+                    1 -> openExternal(m)
+                    2 -> newTab(m.url, current?.incognito ?: false)
+                    3 -> copy(m.url)
+                    4 -> share(m.url)
+                }
+            }.show()
+    }
+
+    private fun downloadMedia(m: MediaItem) {
+        when (m.kind) {
+            MediaSniffer.DASH -> toast("DASH akışları indirilemiyor — harici oynatıcıda açabilirsin")
+            MediaSniffer.HLS -> ensureStorage {
+                if (Build.VERSION.SDK_INT >= 33 && !has(Manifest.permission.POST_NOTIFICATIONS)) {
+                    notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                val title = current?.title?.takeIf { it.isNotBlank() } ?: m.name
+                toast("Akış indiriliyor — ilerlemeyi bildirimde görebilirsin")
+                HlsDownloader.start(this, m.url, m.referer, currentUA(), title) { msg -> toast(msg) }
+            }
+            else -> download(m.url, currentUA(), null, m.mime, current)
+        }
+    }
+
+    private fun openExternal(m: MediaItem) {
+        val i = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(m.url), MediaSniffer.mimeOf(m))
+        val h = MediaSniffer.headers(m.url, m.referer, currentUA())
+        i.putExtra("headers", h.flatMap { listOf(it.key, it.value) }.toTypedArray())
+        current?.title?.let { i.putExtra("title", it) }
+        try {
+            startActivity(Intent.createChooser(i, "Oynatıcı seç"))
+        } catch (_: Exception) {
+            toast("Uygun oynatıcı yok — VLC veya MX Player kurabilirsin")
+        }
+    }
+
+    // =====================================================================
+    // Kaynak kodu & sayfa kaydetme
+    // =====================================================================
+
+    private fun fetchLiveHtml(tab: Tab, cb: (String?) -> Unit) {
+        val js = "(function(){var q=String.fromCharCode(34);var d=document.doctype;" +
+            "var s=d?'<!DOCTYPE '+d.name+(d.publicId?' PUBLIC '+q+d.publicId+q:'')+(d.systemId?' '+q+d.systemId+q:'')+'>\\n':'';" +
+            "return s+document.documentElement.outerHTML;})()"
+        tab.webView.evaluateJavascript(js) { r ->
+            val html = try {
+                if (r == null || r == "null") null else org.json.JSONTokener(r).nextValue() as? String
+            } catch (_: Exception) { null }
+            cb(html)
+        }
+    }
+
+    private fun viewSource(tab: Tab) {
+        fetchLiveHtml(tab) { html ->
+            if (html == null) { toast("Kaynak kodu alınamadı"); return@fetchLiveHtml }
+            val ua = tab.webView.settings.userAgentString
+            val url = tab.url
+            Thread {
+                try {
+                    java.io.File(SourceActivity.dir(this), SourceActivity.LIVE_FILE).writeText(html)
+                    java.io.File(SourceActivity.dir(this), SourceActivity.ORIG_FILE).delete()
+                    runOnUiThread {
+                        startActivity(Intent(this, SourceActivity::class.java)
+                            .putExtra(SourceActivity.EXTRA_URL, url)
+                            .putExtra(SourceActivity.EXTRA_UA, ua))
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread { toast("Kaynak açılamadı: ${e.message}") }
+                }
+            }.start()
+        }
+    }
+
+    private fun savePage(tab: Tab) {
+        val name = Saver.sanitize(tab.title.ifBlank { tab.pageHost })
+        val items = arrayOf(
+            "Web arşivi (.mht) — resimlerle tek dosya",
+            "HTML — yalnızca sayfa kodu",
+            "PDF — yazdır ekranından"
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Sayfayı kaydet")
+            .setItems(items) { _, w ->
+                when (w) {
+                    0 -> ensureStorage { saveMht(tab, name) }
+                    1 -> ensureStorage { saveHtml(tab, name) }
+                    2 -> print(tab)
+                }
+            }.show()
+    }
+
+    private fun saveInBackground(fileName: String, mime: String, write: (java.io.OutputStream) -> Unit, after: () -> Unit = {}) {
+        Thread {
+            val msg = try {
+                Saver.save(this, fileName, mime, write)
+                "Kaydedildi: İndirilenler/Kalkan/$fileName"
+            } catch (e: Exception) {
+                "Kaydedilemedi: ${e.message}"
+            } finally {
+                after()
+            }
+            runOnUiThread { toast(msg) }
+        }.start()
+    }
+
+    private fun saveMht(tab: Tab, name: String) {
+        val tmp = java.io.File(cacheDir, "page_${System.currentTimeMillis()}.mht")
+        tab.webView.saveWebArchive(tmp.path, false) { path ->
+            if (path == null) {
+                toast("Web arşivi oluşturulamadı — HTML veya PDF dene")
+            } else {
+                val f = java.io.File(path)
+                saveInBackground("$name.mht", "multipart/related", { o -> f.inputStream().use { it.copyTo(o) } }) { f.delete() }
+            }
+        }
+    }
+
+    private fun saveHtml(tab: Tab, name: String) {
+        fetchLiveHtml(tab) { html ->
+            if (html == null) toast("Sayfa kodu alınamadı")
+            else saveInBackground("$name.html", "text/html", { o -> o.write(html.toByteArray()) })
+        }
+    }
+
+    private fun translate(url: String) {
+        loadInCurrent("https://translate.google.com/translate?sl=auto&tl=tr&u=" + java.net.URLEncoder.encode(url, "UTF-8"))
+    }
+
+
+    // =====================================================================
     // Menü
     // =====================================================================
 
@@ -1083,19 +1360,35 @@ class MainActivity : AppCompatActivity() {
         val grid = GridLayout(this).apply { columnCount = 4 }
         box.addView(grid)
 
-        fun tile(emoji: String, label: String, action: () -> Unit) {
+        fun tile(icon: Int, label: String, badge: Int = 0, action: () -> Unit) {
             val v = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(dp(2), dp(10), dp(2), dp(10))
+                setPadding(dp(2), dp(12), dp(2), dp(10))
                 setBackgroundResource(selectableBg())
                 isClickable = true
                 setOnClickListener { d.dismiss(); action() }
             }
-            v.addView(TextView(this).apply { text = emoji; textSize = 22f; gravity = Gravity.CENTER })
+            val iconBox = FrameLayout(this)
+            iconBox.addView(ImageView(this).apply {
+                setImageResource(icon)
+                imageTintList = ColorStateList.valueOf(textColor())
+            }, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER))
+            if (badge > 0) {
+                iconBox.addView(TextView(this).apply {
+                    text = if (badge > 99) "99+" else badge.toString()
+                    textSize = 9.5f
+                    setTextColor(Color.parseColor("#1A1205"))
+                    setBackgroundResource(R.drawable.bg_badge)
+                    gravity = Gravity.CENTER
+                    minWidth = dp(15)
+                    setPadding(dp(3), 0, dp(3), 0)
+                }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(15), Gravity.END or Gravity.TOP))
+            }
+            v.addView(iconBox, LinearLayout.LayoutParams(dp(40), dp(30)))
             v.addView(TextView(this).apply {
                 text = label; textSize = 11.5f; gravity = Gravity.CENTER; maxLines = 2
-                setTextColor(textColor()); setPadding(0, dp(4), 0, 0)
+                setTextColor(textColor()); setPadding(0, dp(6), 0, 0)
             })
             val lp = GridLayout.LayoutParams(
                 GridLayout.spec(GridLayout.UNDEFINED, 1f), GridLayout.spec(GridLayout.UNDEFINED, 1f)
@@ -1106,32 +1399,42 @@ class MainActivity : AppCompatActivity() {
         val url = t?.url ?: ""
         val isPage = t != null && url.startsWith("http") && !isHome(url)
         val bookmarked = isPage && Store.isBookmarked(url)
+        val mediaCount = t?.let { synchronized(it.media) { it.media.size } } ?: 0
 
-        tile("➕", "Yeni sekme") { newTab(HOME_URL, false) }
-        tile("🕶️", "Gizli sekme") { newTab(HOME_URL, true) }
-        tile(if (bookmarked) "⭐" else "☆", if (bookmarked) "Yer iminden çıkar" else "Yer imi ekle") {
+        tile(R.drawable.ic_add, "Yeni sekme") { newTab(HOME_URL, false) }
+        tile(R.drawable.ic_incognito, "Gizli sekme") { newTab(HOME_URL, true) }
+        tile(if (bookmarked) R.drawable.ic_star else R.drawable.ic_star_border, if (bookmarked) "Yer iminden çıkar" else "Yer imi ekle") {
             if (!isPage) toast("Bu sayfa eklenemez")
             else toast(if (Store.toggleBookmark(url, t!!.title)) "Yer imlerine eklendi" else "Yer iminden çıkarıldı")
         }
-        tile("📚", "Yer imleri") { openLibrary(LibraryActivity.MODE_BOOKMARKS) }
-        tile("🕘", "Geçmiş") { openLibrary(LibraryActivity.MODE_HISTORY) }
-        tile("⬇️", "İndirilenler") { openDownloads() }
-        tile("🔍", "Sayfada bul") { if (isPage) openFind() }
-        tile("📤", "Paylaş") { if (isPage) share(url, t!!.title) }
-        tile("🖥️", if (t?.desktop == true) "Mobil site" else "Masaüstü site") { t?.let { toggleDesktop(it) } }
-        tile("🖨️", "Yazdır / PDF") { if (isPage) print(t!!) }
-        tile("📋", "Adresi kopyala") { if (isPage) copy(url) }
-        tile("♻️", "Kapatılanı aç") {
+        tile(R.drawable.ic_bookmark, "Yer imleri") { openLibrary(LibraryActivity.MODE_BOOKMARKS) }
+
+        tile(R.drawable.ic_history, "Geçmiş") { openLibrary(LibraryActivity.MODE_HISTORY) }
+        tile(R.drawable.ic_download, "İndirilenler") { openDownloads() }
+        tile(R.drawable.ic_movie, "Medya", mediaCount) { showMedia() }
+        tile(R.drawable.ic_save, "Sayfayı kaydet") { if (isPage) savePage(t!!) else toast("Bu sayfa kaydedilemez") }
+
+        tile(R.drawable.ic_code, "Kaynak kodu") { if (isPage) viewSource(t!!) else toast("Önce bir site aç") }
+        tile(R.drawable.ic_search, "Sayfada bul") { if (isPage) openFind() }
+        tile(R.drawable.ic_share, "Paylaş") { if (isPage) share(url, t!!.title) }
+        tile(R.drawable.ic_translate, "Çevir") { if (isPage) translate(url) }
+
+        tile(if (t?.desktop == true) R.drawable.ic_phone else R.drawable.ic_desktop,
+            if (t?.desktop == true) "Mobil site" else "Masaüstü site") { t?.let { toggleDesktop(it) } }
+        tile(R.drawable.ic_print, "Yazdır / PDF") { if (isPage) print(t!!) }
+        tile(R.drawable.ic_copy, "Adresi kopyala") { if (isPage) copy(url) }
+        tile(R.drawable.ic_undo, "Kapatılanı aç") {
             val last = closedUrls.removeLastOrNull()
             if (last != null) newTab(last, false) else toast("Kapatılan sekme yok")
         }
-        tile("🛡️", "VPN & Koruma") { startActivity(Intent(this, VpnActivity::class.java)) }
-        tile("⚙️", "Ayarlar") { startActivity(Intent(this, SettingsActivity::class.java)) }
-        tile("🧹", "Gizlileri kapat") {
+
+        tile(R.drawable.ic_vpn, "VPN & Koruma") { startActivity(Intent(this, VpnActivity::class.java)) }
+        tile(R.drawable.ic_settings, "Ayarlar") { startActivity(Intent(this, SettingsActivity::class.java)) }
+        tile(R.drawable.ic_sweep, "Gizlileri kapat") {
             tabs.filter { it.incognito }.forEach { closeTab(it) }
             toast("Gizli sekmeler kapatıldı")
         }
-        tile("🚪", "Çıkış") {
+        tile(R.drawable.ic_exit, "Çıkış") {
             saveSession()
             tabs.filter { it.incognito }.forEach { closeTab(it) }
             finishAndRemoveTask()
@@ -1228,7 +1531,7 @@ class MainActivity : AppCompatActivity() {
                 if (tab.favicon != null) icon.setImageBitmap(tab.favicon)
                 else icon.setImageResource(if (tab.incognito) R.drawable.ic_lock else R.drawable.ic_search)
                 val home = isHome(tab.url) || tab.url.isEmpty()
-                (v[1] as TextView).text = (if (tab.incognito) "🕶 " else "") +
+                (v[1] as TextView).text = (if (tab.incognito) "Gizli · " else "") +
                     (if (home) "Yeni sekme" else tab.title.ifEmpty { displayUrl(tab.url) })
                 (v[2] as TextView).text = if (home) "Kalkan" else displayUrl(tab.url)
                 holder.itemView.setBackgroundResource(if (tab === current) R.drawable.bg_card_active else R.drawable.bg_tile)
@@ -1271,7 +1574,7 @@ class MainActivity : AppCompatActivity() {
         }
         val brand = ContextCompat.getColor(this, R.color.brand)
         val host = t?.pageHost?.takeIf { it.isNotEmpty() && it != ASSET_HOST }
-        box.addView(label("🛡️ Kalkan Koruması", 20f, textColor(), true))
+        box.addView(label("Kalkan Koruması", 20f, textColor(), true))
         if (host != null) box.addView(label(host, 14f, mutedColor(), top = 2))
         box.addView(label((t?.blocked ?: 0).toString(), 44f, brand, true, 12))
         box.addView(label("bu sayfada engellenen reklam ve izleyici", 14f, mutedColor()))
@@ -1417,7 +1720,7 @@ class MainActivity : AppCompatActivity() {
                 val q = constraint?.toString()?.trim() ?: ""
                 val list = ArrayList<Entry>()
                 if (q.isNotEmpty()) {
-                    list.add(Entry(resolve(q), "🔎 $q", -1L))
+                    list.add(Entry(resolve(q), q, -1L))
                     list.addAll(Store.suggest(q).filter { it.url != list[0].url })
                 }
                 return FilterResults().apply { values = list; count = list.size }

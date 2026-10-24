@@ -24,6 +24,28 @@ object Scripts {
     } catch(e) {}
   }
 
+  // Medya yakalayıcı: oynatıcıların gerçek kaynaklarını bildir
+  if (K.media) {
+    var seenM = new Set();
+    var scanMedia = function(){
+      try {
+        var els = document.querySelectorAll('video, audio, video source, audio source');
+        for (var i=0;i<els.length;i++) {
+          var e = els[i];
+          var src = e.currentSrc || e.src || '';
+          if (src && /^https?:/.test(src) && !seenM.has(src)) {
+            seenM.add(src);
+            var tag = (e.tagName === 'SOURCE' && e.parentElement) ? e.parentElement.tagName : e.tagName;
+            K.media(src, tag.toLowerCase(), location.href);
+          }
+        }
+      } catch(e) {}
+    };
+    setInterval(scanMedia, 2000);
+    document.addEventListener('play', scanMedia, true);
+    document.addEventListener('loadedmetadata', scanMedia, true);
+  }
+
   if (!cfg.on) return;
 
   var isYT = /(^|\.)youtube\.com$/.test(host) || /(^|\.)youtube-nocookie\.com$/.test(host);
