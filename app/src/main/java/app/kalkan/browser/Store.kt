@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 data class Entry(val url: String, var title: String, var time: Long)
 
+data class UserScript(val id: Long, var name: String, var match: String, var code: String, var on: Boolean)
+
 /** Geçmiş, yer imleri, ayarlar ve sayaçlar. */
 object Store {
     private lateinit var app: Context
@@ -48,6 +50,7 @@ object Store {
         totalBlocked.set(prefs.getLong("total_blocked", 0))
         load("history.json", history)
         load("bookmarks.json", bookmarks)
+        loadScripts()
     }
 
     private fun load(name: String, into: MutableList<Entry>) {
@@ -221,4 +224,204 @@ object Store {
         val u = android.net.Uri.parse(url)
         "${u.scheme}://${u.host}"
     } catch (_: Exception) { url }
+
+    // ---------- Site kuralları (öğe gizleme / otomatik basma) ----------
+    private fun rules(kind: String): JSONObject = try {
+        JSONObject(prefs.getString("rules_$kind", "{}") ?: "{}")
+    } catch (_: Exception) { JSONObject() }
+
+    fun rulesFor(kind: String, host: String): List<String> {
+        val o = rules(kind)
+        val out = ArrayList<String>()
+        AdBlockEngine.forEachSuffix(host.lowercase().removePrefix("www.")) { h ->
+            o.optJSONArray(h)?.let { a -> for (i in 0 until a.length()) out.add(a.getString(i)) }
+            false
+        }
+        return out
+    }
+
+    fun addRule(kind: String, host: String, sel: String) {
+        val o = rules(kind)
+        val h = host.lowercase().removePrefix("www.")
+        val a = o.optJSONArray(h) ?: JSONArray()
+        for (i in 0 until a.length()) if (a.getString(i) == sel) return
+        a.put(sel)
+        o.put(h, a)
+        prefs.edit().putString("rules_$kind", o.toString()).apply()
+    }
+
+    fun removeRule(kind: String, host: String, sel: String) {
+        val o = rules(kind)
+        val a = o.optJSONArray(host) ?: return
+        val n = JSONArray()
+        for (i in 0 until a.length()) if (a.getString(i) != sel) n.put(a.getString(i))
+        if (n.length() == 0) o.remove(host) else o.put(host, n)
+        prefs.edit().putString("rules_$kind", o.toString()).apply()
+    }
+
+    /** (site, seçici) çiftleri */
+    fun allRules(kind: String): List<Pair<String, String>> {
+        val o = rules(kind)
+        val out = ArrayList<Pair<String, String>>()
+        o.keys().forEach { h ->
+            val a = o.optJSONArray(h) ?: return@forEach
+            for (i in 0 until a.length()) out.add(Pair(h, a.getString(i)))
+        }
+        return out.sortedBy { it.first }
+    }
+
+    // ---------- Kullanıcı betikleri ----------
+    private val scripts = ArrayList<UserScript>()
+
+    private fun loadScripts() {
+        try {
+            val f = File(app.filesDir, "scripts.json")
+            if (!f.exists()) return
+            val arr = JSONArray(f.readText())
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                scripts.add(UserScript(o.getLong("id"), o.optString("name"), o.optString("match", "*"),
+                    o.optString("code"), o.optBoolean("on", true)))
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun saveScripts() {
+        val arr = JSONArray()
+        synchronized(scripts) {
+            scripts.forEach {
+                arr.put(JSONObject().put("id", it.id).put("name", it.name).put("match", it.match)
+                    .put("code", it.code).put("on", it.on))
+            }
+        }
+        val text = arr.toString()
+        io.execute {
+            try { File(app.filesDir, "scripts.json").writeText(text) } catch (_: Exception) {}
+        }
+    }
+
+    fun scriptList(): List<UserScript> = synchronized(scripts) { scripts.toList() }
+
+    fun saveScript(sc: UserScript) {
+        synchronized(scripts) {
+            val i = scripts.indexOfFirst { it.id == sc.id }
+            if (i >= 0) scripts[i] = sc else scripts.add(sc)
+        }
+        saveScripts()
+    }
+
+    fun deleteScript(id: Long) {
+        synchronized(scripts) { scripts.removeAll { it.id == id } }
+        saveScripts()
+    }
+
+    fun scriptMatches(sc: UserScript, host: String): Boolean {
+        val h = host.lowercase()
+        return sc.match.split(',', ' ', '\n').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.any { p ->
+            when {
+                p == "*" -> true
+                p.startsWith("*.") -> { val b = p.substring(2); h == b || h.endsWith(".$b") }
+                else -> { val b = p.removePrefix("www."); h == b || h.endsWith(".$b") }
+            }
+        }
+    }
+
+    fun scriptsFor(host: String): List<UserScript> = scriptList().filter { it.on && scriptMatches(it, host) }
+
+    // ---------- Yedekleme ----------
+    private val NO_BACKUP = setOf("session", "session_index", "wg_config", "wg_name", "dns_vpn_on")
+
+    fun exportJson(): String {
+        val p = JSONObject()
+        for ((k, v) in prefs.all) {
+            if (k in NO_BACKUP) continue
+            val o = JSONObject()
+            when (v) {
+                is Boolean -> o.put("t", "b").put("v", v)
+                is Int -> o.put("t", "i").put("v", v)
+                is Long -> o.put("t", "l").put("v", v)
+                is Float -> o.put("t", "f").put("v", v.toDouble())
+                is String -> o.put("t", "s").put("v", v)
+                is Set<*> -> o.put("t", "set").put("v", JSONArray(v.map { it.toString() }))
+                else -> continue
+            }
+            p.put(k, o)
+        }
+        fun list(l: List<Entry>) = JSONArray().apply {
+            l.forEach { put(JSONObject().put("u", it.url).put("t", it.title).put("d", it.time)) }
+        }
+        val sc = JSONArray()
+        scriptList().forEach {
+            sc.put(JSONObject().put("id", it.id).put("name", it.name).put("match", it.match).put("code", it.code).put("on", it.on))
+        }
+        return JSONObject()
+            .put("app", "Kalkan")
+            .put("version", 1)
+            .put("created", System.currentTimeMillis())
+            .put("prefs", p)
+            .put("bookmarks", list(synchronized(bookmarks) { bookmarks.toList() }))
+            .put("history", list(synchronized(history) { history.toList() }))
+            .put("scripts", sc)
+            .toString(2)
+    }
+
+    /** @return içe aktarılan öğe sayısı */
+    fun importJson(text: String): Int {
+        val root = JSONObject(text)
+        if (root.optString("app") != "Kalkan") throw IllegalArgumentException("Bu bir Kalkan yedeği değil")
+        var n = 0
+        root.optJSONObject("prefs")?.let { p ->
+            val e = prefs.edit()
+            p.keys().forEach { k ->
+                if (k in NO_BACKUP) return@forEach
+                val o = p.getJSONObject(k)
+                when (o.optString("t")) {
+                    "b" -> e.putBoolean(k, o.getBoolean("v"))
+                    "i" -> e.putInt(k, o.getInt("v"))
+                    "l" -> e.putLong(k, o.getLong("v"))
+                    "f" -> e.putFloat(k, o.getDouble("v").toFloat())
+                    "s" -> e.putString(k, o.getString("v"))
+                    "set" -> {
+                        val a = o.getJSONArray("v")
+                        e.putStringSet(k, (0 until a.length()).map { a.getString(it) }.toSet())
+                    }
+                }
+                n++
+            }
+            e.apply()
+            totalBlocked.set(prefs.getLong("total_blocked", totalBlocked.get()))
+        }
+        fun merge(key: String, into: MutableList<Entry>, file: String) {
+            val a = root.optJSONArray(key) ?: return
+            synchronized(into) {
+                val have = into.map { it.url }.toHashSet()
+                for (i in 0 until a.length()) {
+                    val o = a.getJSONObject(i)
+                    val u = o.getString("u")
+                    if (u in have) continue
+                    into.add(Entry(u, o.optString("t"), o.optLong("d")))
+                    have.add(u)
+                    n++
+                }
+                into.sortBy { it.time }
+            }
+            save(file, into)
+        }
+        merge("bookmarks", bookmarks, "bookmarks.json")
+        merge("history", history, "history.json")
+        root.optJSONArray("scripts")?.let { a ->
+            for (i in 0 until a.length()) {
+                val o = a.getJSONObject(i)
+                saveScript(UserScript(o.getLong("id"), o.optString("name"), o.optString("match", "*"),
+                    o.optString("code"), o.optBoolean("on", true)))
+                n++
+            }
+        }
+        return n
+    }
+
+    fun clearSession() {
+        prefs.edit().putString("session", "[]").putInt("session_index", 0).apply()
+    }
 }

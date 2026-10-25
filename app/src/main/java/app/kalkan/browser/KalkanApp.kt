@@ -6,7 +6,10 @@ import androidx.appcompat.app.AppCompatDelegate
 class KalkanApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        try { android.webkit.WebView.enableSlowWholeDocumentDraw() } catch (_: Exception) {}
         Store.init(this)
+        DownloadEngine.init(this)
+        Net.applyWebView()
         applyTheme(Store.str("theme", "system"))
         FilterManager.init(this)
     }

@@ -42,6 +42,8 @@ class MediaItem(
     @Volatile var probed = false
     @Volatile var time: Long = System.currentTimeMillis()
     @Volatile var blocked = false
+    @Volatile var method: String = "GET"
+    @Volatile var reqHeaders: Map<String, String> = emptyMap()
 
     val name: String
         get() = try {
@@ -143,7 +145,7 @@ object MediaSniffer {
         item.probed = true
         probePool.execute {
             try {
-                val c = URL(item.url).openConnection() as HttpURLConnection
+                val c = Net.open(item.url)
                 c.requestMethod = "HEAD"
                 c.connectTimeout = 10000
                 c.readTimeout = 10000
@@ -229,7 +231,9 @@ object Saver {
 object Notif {
     private const val CHANNEL = "kalkan_downloads"
 
-    private fun ensureChannel(ctx: Context) {
+    const val CHANNEL_ID = CHANNEL
+
+    fun ensureChannel(ctx: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             if (nm.getNotificationChannel(CHANNEL) == null) {
@@ -375,7 +379,7 @@ object HlsDownloader {
     }
 
     private fun get(url: String, headers: Map<String, String>): ByteArray {
-        val c = URL(url).openConnection() as HttpURLConnection
+        val c = Net.open(url)
         c.instanceFollowRedirects = true
         c.connectTimeout = 20000
         c.readTimeout = 60000

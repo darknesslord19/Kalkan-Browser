@@ -107,7 +107,7 @@ object FilterManager {
         for (l in LISTS) {
             if (!isEnabled(l.id)) continue
             try {
-                val c = URL(l.url).openConnection() as HttpURLConnection
+                val c = Net.open(l.url)
                 c.connectTimeout = 15000
                 c.readTimeout = 30000
                 c.setRequestProperty("User-Agent", "Kalkan/1.0 (Android)")

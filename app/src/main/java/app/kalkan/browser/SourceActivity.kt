@@ -207,7 +207,7 @@ class SourceActivity : AppCompatActivity() {
         toast("Kaynak indiriliyor…")
         Thread {
             val err = try {
-                val c = URL(pageUrl).openConnection() as HttpURLConnection
+                val c = Net.open(pageUrl)
                 c.connectTimeout = 15000
                 c.readTimeout = 30000
                 c.setRequestProperty("User-Agent", ua)

@@ -63,5 +63,7 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("com.wireguard.android:tunnel:1.0.20230706")
+    implementation("androidx.biometric:biometric:1.1.0")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
 }

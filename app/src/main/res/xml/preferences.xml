@@ -40,6 +40,18 @@
             app:title="Yeni sekmeler masaüstü sitesi açsın"
             app:defaultValue="false"
             app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="hide_bars"
+            app:title="Kaydırınca çubukları gizle"
+            app:summary="Aşağı kaydırınca adres ve alt çubuk gizlenir"
+            app:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="swipe_tabs"
+            app:title="Kaydırarak sekme değiştir"
+            app:summary="Alt çubukta veya adres çubuğunda sağa/sola kaydır"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
         <Preference
             app:key="default_browser"
             app:title="Varsayılan tarayıcı yap"
@@ -62,6 +74,12 @@
             app:key="block_3p_cookies"
             app:title="Üçüncü taraf çerezleri engelle"
             app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="clear_on_exit"
+            app:title="Çıkışta verileri sil"
+            app:summary="Çıkış'a basınca geçmiş, çerezler ve sekmeler silinir"
+            app:defaultValue="false"
             app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
             app:key="javascript"
@@ -97,6 +115,18 @@
             app:key="bg_play"
             app:title="Arka planda oynat"
             app:summary="Uygulamadan çıkınca video/müzik çalmaya devam eder"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="auto_pip"
+            app:title="Otomatik resim içinde resim"
+            app:summary="Tam ekran videodayken uygulamadan çıkınca küçük pencerede oynar"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="internal_dl"
+            app:title="Kalkan indirme yöneticisi"
+            app:summary="Çok parçalı hızlı indirme, duraklat/devam et"
             app:defaultValue="true"
             app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat

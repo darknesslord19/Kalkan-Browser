@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
         const val ASSET_HOST = "appassets.androidplatform.net"
         const val HOME_URL = "https://$ASSET_HOST/assets/home.html"
         const val EXTRA_OPEN_URL = "open_url"
-        private const val INCOGNITO_PROFILE = "kalkan_incognito"
+        internal const val INCOGNITO_PROFILE = "kalkan_incognito"
     }
 
     class Tab(val id: Long, val webView: WebView, val incognito: Boolean, val parentId: Long?) {
@@ -107,63 +107,67 @@ class MainActivity : AppCompatActivity() {
         val res = LinkedHashMap<String, MediaItem>()
         @Volatile var mediaCount = 0
         @Volatile var autoAllowUntil = 0L
+        @Volatile var rate = 1f
+        val console = ArrayDeque<ConsoleLine>()
     }
 
-    private val tabs = ArrayList<Tab>()
-    private var current: Tab? = null
-    private var nextId = 1L
-    private val closedUrls = ArrayList<String>()
+    class ConsoleLine(val level: Char, val text: String, val src: String, val time: Long = System.currentTimeMillis())
 
-    private lateinit var root: FrameLayout
-    private lateinit var toolbar: LinearLayout
-    private lateinit var findBar: LinearLayout
-    private lateinit var findInput: EditText
-    private lateinit var findCount: TextView
-    private lateinit var urlBar: AutoCompleteTextView
-    private lateinit var reloadBtn: ImageButton
-    private lateinit var shieldIcon: ImageView
-    private lateinit var shieldBadge: TextView
-    private lateinit var progress: LinearProgressIndicator
-    private lateinit var swipe: SwipeRefreshLayout
-    private lateinit var webContainer: FrameLayout
-    private lateinit var backBtn: ImageButton
-    private lateinit var forwardBtn: ImageButton
-    private lateinit var tabsCount: TextView
-    private lateinit var fullscreen: FrameLayout
-    private lateinit var mediaBtn: View
-    private lateinit var mediaBadge: TextView
-    private lateinit var preventBtn: ImageButton
+    internal val tabs = ArrayList<Tab>()
+    internal var current: Tab? = null
+    internal var nextId = 1L
+    internal val closedUrls = ArrayList<String>()
 
-    private lateinit var assetLoader: WebViewAssetLoader
-    private val ui = Handler(Looper.getMainLooper())
+    internal lateinit var root: FrameLayout
+    internal lateinit var toolbar: LinearLayout
+    internal lateinit var findBar: LinearLayout
+    internal lateinit var findInput: EditText
+    internal lateinit var findCount: TextView
+    internal lateinit var urlBar: AutoCompleteTextView
+    internal lateinit var reloadBtn: ImageButton
+    internal lateinit var shieldIcon: ImageView
+    internal lateinit var shieldBadge: TextView
+    internal lateinit var progress: LinearProgressIndicator
+    internal lateinit var swipe: SwipeRefreshLayout
+    internal lateinit var webContainer: FrameLayout
+    internal lateinit var backBtn: ImageButton
+    internal lateinit var forwardBtn: ImageButton
+    internal lateinit var tabsCount: TextView
+    internal lateinit var fullscreen: FrameLayout
+    internal lateinit var mediaBtn: View
+    internal lateinit var mediaBadge: TextView
+    internal lateinit var preventBtn: ImageButton
+
+    internal lateinit var assetLoader: WebViewAssetLoader
+    internal val ui = Handler(Looper.getMainLooper())
     @Volatile private var shieldPosted = false
 
-    private val docStartSupported by lazy { WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) }
-    private val profilesSupported by lazy { WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) }
+    internal val docStartSupported by lazy { WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) }
+    internal val profilesSupported by lazy { WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) }
 
-    private val mobileUA by lazy {
+    internal val mobileUA by lazy {
         WebSettings.getDefaultUserAgent(this)
             .replace("; wv", "")
             .replace(Regex("Version/\\d+\\.\\d+ "), "")
     }
-    private val desktopUA by lazy {
+    internal val desktopUA by lazy {
         val chrome = Regex("Chrome/([\\d.]+)").find(mobileUA)?.groupValues?.get(1) ?: "130.0.0.0"
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$chrome Safari/537.36"
     }
 
-    private var customView: View? = null
-    private var customCallback: WebChromeClient.CustomViewCallback? = null
-    private var fileCallback: ValueCallback<Array<Uri>>? = null
-    private var pendingWebPermission: PermissionRequest? = null
-    private var pendingGeo: Pair<String, GeolocationPermissions.Callback>? = null
-    private var pendingAction: (() -> Unit)? = null
+    internal var customView: View? = null
+    internal var customCallback: WebChromeClient.CustomViewCallback? = null
+    internal var fileCallback: ValueCallback<Array<Uri>>? = null
+    internal var pendingWebPermission: PermissionRequest? = null
+    internal var pendingGeo: Pair<String, GeolocationPermissions.Callback>? = null
+    internal var pendingAction: (() -> Unit)? = null
 
-    private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+    internal val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(r.resultCode, r.data))
         fileCallback = null
     }
 
-    private val permLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+    internal val permLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
         pendingWebPermission?.let { req ->
             val granted = ArrayList<String>()
             for (r in req.resources) {
@@ -186,9 +190,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val filterListener: () -> Unit = { updateShield() }
+    internal val filterListener: () -> Unit = { updateShield() }
 
-    private val notifLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    internal val notifLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    internal val qrLauncher = registerForActivityResult(com.journeyapps.barcodescanner.ScanContract()) { r ->
+        r.contents?.let { onQrResult(it) }
+    }
+
+    internal val backupPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importBackup(uri)
+    }
+
+    internal lateinit var topBar: View
+    internal lateinit var bottomBar: View
+    internal var locked = false
+    internal var internalNav = false
+    internal var lockOverlay: View? = null
+    internal var pipCss = false
+    internal var barsHidden = false
+    internal var scrollAcc = 0
 
     // =====================================================================
     // Yaşam döngüsü
@@ -204,6 +225,7 @@ class MainActivity : AppCompatActivity() {
             .build()
         setupToolbar()
         setupBack()
+        setupGestures()
         FilterManager.addListener(filterListener)
 
         val restored = restoreSession()
@@ -218,9 +240,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        internalNav = false
         applySettingsToAll()
         current?.webView?.onResume()
         updateAll()
+        if (locked && needsLock(current)) showLock()
     }
 
     override fun onPause() {
@@ -228,10 +252,36 @@ class MainActivity : AppCompatActivity() {
         saveSession()
         Store.persistCounters()
         CookieManager.getInstance().flush()
-        if (!Store.bool("bg_play", true)) current?.webView?.onPause()
+        if (!Store.bool("bg_play", true) && !isInPictureInPictureMode) current?.webView?.onPause()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!internalNav && lockMode() != "off") locked = true
+    }
+
+    override fun startActivity(intent: Intent?) {
+        internalNav = true
+        super.startActivity(intent)
+    }
+
+    override fun startActivity(intent: Intent?, options: Bundle?) {
+        internalNav = true
+        super.startActivity(intent, options)
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Store.bool("auto_pip", true) && customView != null && !internalNav) enterPip()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        onPipChanged(isInPictureInPictureMode)
     }
 
     override fun onDestroy() {
+        if (isFinishing && Store.bool("clear_on_exit", false)) clearAllData()
         FilterManager.removeListener(filterListener)
         for (t in tabs) {
             try { t.webView.destroy() } catch (_: Exception) {}
@@ -240,7 +290,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun bindViews() {
+    internal fun bindViews() {
         root = findViewById(R.id.root)
         toolbar = findViewById(R.id.toolbar)
         findBar = findViewById(R.id.findBar)
@@ -259,6 +309,8 @@ class MainActivity : AppCompatActivity() {
         fullscreen = findViewById(R.id.fullscreen)
         mediaBtn = findViewById(R.id.mediaBtn)
         mediaBadge = findViewById(R.id.mediaBadge)
+        topBar = findViewById(R.id.topBar)
+        bottomBar = findViewById(R.id.bottomBar)
         preventBtn = findViewById(R.id.preventBtn)
     }
 
@@ -266,7 +318,7 @@ class MainActivity : AppCompatActivity() {
     // Araç çubuğu
     // =====================================================================
 
-    private fun setupToolbar() {
+    internal fun setupToolbar() {
         val adapter = SuggestAdapter()
         urlBar.setAdapter(adapter)
         urlBar.setOnItemClickListener { _, _, pos, _ ->
@@ -306,6 +358,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.tabsBtn).setOnClickListener { showTabs() }
         findViewById<View>(R.id.tabsBtn).setOnLongClickListener { newTab(HOME_URL, false); true }
         findViewById<View>(R.id.menuBtn).setOnClickListener { showMenu() }
+        findViewById<View>(R.id.menuBtn).setOnLongClickListener { showTools(); true }
 
         swipe.setColorSchemeColors(ContextCompat.getColor(this, R.color.brand))
         swipe.setOnRefreshListener { current?.webView?.reload() }
@@ -325,7 +378,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.findClose).setOnClickListener { closeFind() }
     }
 
-    private fun setupBack() {
+    internal fun setupBack() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val t = current
@@ -341,13 +394,13 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun go(input: String) {
+    internal fun go(input: String) {
         val text = input.trim()
         if (text.isEmpty()) return
         loadInCurrent(resolve(text))
     }
 
-    private fun loadInCurrent(url: String) {
+    internal fun loadInCurrent(url: String) {
         urlBar.dismissDropDown()
         urlBar.clearFocus()
         hideKeyboard()
@@ -373,7 +426,7 @@ class MainActivity : AppCompatActivity() {
     // =====================================================================
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun newTab(url: String?, incognito: Boolean, background: Boolean = false, parent: Tab? = null, quiet: Boolean = false): Tab {
+    internal fun newTab(url: String?, incognito: Boolean, background: Boolean = false, parent: Tab? = null, quiet: Boolean = false): Tab {
         val wv = WebView(this)
         if (incognito && profilesSupported) {
             try {
@@ -402,7 +455,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun configure(tab: Tab) {
+    internal fun configure(tab: Tab) {
         val wv = tab.webView
         wv.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         wv.setBackgroundColor(ContextCompat.getColor(this, R.color.bar))
@@ -420,8 +473,8 @@ class MainActivity : AppCompatActivity() {
         s.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         s.allowFileAccess = false
         s.allowContentAccess = true
-        s.userAgentString = if (Store.bool("desktop_default", false)) desktopUA else mobileUA
         tab.desktop = Store.bool("desktop_default", false)
+        s.userAgentString = uaFor(tab)
         if (tab.incognito && !profilesSupported) s.cacheMode = WebSettings.LOAD_NO_CACHE
         applySettings(tab)
 
@@ -436,13 +489,14 @@ class MainActivity : AppCompatActivity() {
         wv.webChromeClient = Chrome(tab)
         wv.setDownloadListener { url, ua, cd, mime, _ -> download(url, ua, cd, mime, tab) }
         wv.setOnLongClickListener { longPress(tab) }
+        wv.setOnScrollChangeListener { _, _, y, _, oldY -> if (tab === current) onPageScroll(y, y - oldY) }
         wv.setFindListener { active, num, done ->
             if (done && tab === current) findCount.text = if (num == 0) "0/0" else "${active + 1}/$num"
         }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun applySettings(tab: Tab) {
+    internal fun applySettings(tab: Tab) {
         val s = tab.webView.settings
         s.javaScriptEnabled = Store.bool("javascript", true)
         s.javaScriptCanOpenWindowsAutomatically = !Store.bool("popup_block", true)
@@ -458,12 +512,12 @@ class MainActivity : AppCompatActivity() {
         cm.setAcceptThirdPartyCookies(tab.webView, !Store.bool("block_3p_cookies", true))
     }
 
-    private fun applySettingsToAll() {
+    internal fun applySettingsToAll() {
         tabs.forEach { applySettings(it) }
         swipe.isEnabled = Store.bool("pull_refresh", true)
     }
 
-    private fun switchTo(tab: Tab) {
+    internal fun switchTo(tab: Tab) {
         val prev = current
         if (prev != null && prev !== tab) {
             webContainer.removeView(prev.webView)
@@ -476,11 +530,13 @@ class MainActivity : AppCompatActivity() {
             tab.webView.loadUrl(it)
         }
         if (findBar.isVisible) closeFind()
+        if (barsHidden) showBars()
         updateAll()
+        if (locked && needsLock(tab)) showLock()
         saveSessionSoon()
     }
 
-    private fun closeTab(tab: Tab) {
+    internal fun closeTab(tab: Tab) {
         val idx = tabs.indexOf(tab)
         if (idx < 0) return
         tabs.removeAt(idx)
@@ -502,7 +558,7 @@ class MainActivity : AppCompatActivity() {
         saveSessionSoon()
     }
 
-    private fun closeAllTabs() {
+    internal fun closeAllTabs() {
         for (t in tabs.toList()) {
             webContainer.removeView(t.webView)
             try { t.webView.destroy() } catch (_: Exception) {}
@@ -513,7 +569,7 @@ class MainActivity : AppCompatActivity() {
         newTab(HOME_URL, false)
     }
 
-    private fun clearIncognito() {
+    internal fun clearIncognito() {
         if (!profilesSupported || tabs.any { it.incognito }) return
         try {
             val store = ProfileStore.getInstance()
@@ -538,23 +594,23 @@ class MainActivity : AppCompatActivity() {
     // Arayüz güncellemeleri
     // =====================================================================
 
-    private fun updateAll() {
+    internal fun updateAll() {
         updateUrlBar(); updateNav(); updateProgress(); updateShield(); updateTabCount(); updateMediaBtn(); updatePreventBtn()
     }
 
-    private fun isHome(url: String) = url.startsWith(HOME_URL)
+    internal fun isHome(url: String) = url.startsWith(HOME_URL)
 
-    private fun hostOf(url: String): String = try {
+    internal fun hostOf(url: String): String = try {
         Uri.parse(url).host?.lowercase() ?: ""
     } catch (_: Exception) { "" }
 
-    private fun displayUrl(url: String): String {
+    internal fun displayUrl(url: String): String {
         var u = url.removePrefix("https://").removePrefix("http://").removePrefix("www.")
         if (u.endsWith("/")) u = u.dropLast(1)
         return u
     }
 
-    private fun updateUrlBar() {
+    internal fun updateUrlBar() {
         val t = current ?: return
         if (!urlBar.hasFocus()) {
             urlBar.setText(if (isHome(t.url)) "" else displayUrl(t.url), false)
@@ -569,13 +625,13 @@ class MainActivity : AppCompatActivity() {
         urlBar.backgroundTintList = if (t.incognito) ColorStateList.valueOf(Color.parseColor("#557C5CFF")) else null
     }
 
-    private fun updateNav() {
+    internal fun updateNav() {
         val wv = current?.webView ?: return
         backBtn.alpha = if (wv.canGoBack()) 1f else 0.35f
         forwardBtn.alpha = if (wv.canGoForward()) 1f else 0.35f
     }
 
-    private fun updateProgress() {
+    internal fun updateProgress() {
         val t = current ?: return
         val loading = t.progress < 100
         progress.visibility = if (loading) View.VISIBLE else View.INVISIBLE
@@ -584,10 +640,10 @@ class MainActivity : AppCompatActivity() {
         if (!loading) swipe.isRefreshing = false
     }
 
-    private fun protectionActive(t: Tab?): Boolean =
+    internal fun protectionActive(t: Tab?): Boolean =
         Store.adblock && (t == null || !Store.isAllowlisted(t.pageHost))
 
-    private fun updateShield() {
+    internal fun updateShield() {
         val t = current
         val on = protectionActive(t)
         shieldIcon.setImageResource(if (on) R.drawable.ic_shield else R.drawable.ic_shield_off)
@@ -598,59 +654,59 @@ class MainActivity : AppCompatActivity() {
         } else shieldBadge.visibility = View.GONE
     }
 
-    private fun postShield() {
+    internal fun postShield() {
         if (shieldPosted) return
         shieldPosted = true
         ui.postDelayed({ shieldPosted = false; updateShield() }, 250)
     }
 
-    private fun updateTabCount() {
+    internal fun updateTabCount() {
         tabsCount.text = if (tabs.size > 99) ":D" else tabs.size.toString()
     }
 
-    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    internal fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    internal fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-    private fun isDark() =
+    internal fun isDark() =
         (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-    private fun has(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+    internal fun has(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
 
-    private fun hideKeyboard() {
+    internal fun hideKeyboard() {
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(urlBar.windowToken, 0)
     }
 
-    private fun showKeyboard(v: View) {
+    internal fun showKeyboard(v: View) {
         v.requestFocus()
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(v, InputMethodManager.SHOW_IMPLICIT)
     }
 
-    private fun copy(text: String) {
+    internal fun copy(text: String) {
         (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Kalkan", text))
         if (Build.VERSION.SDK_INT < 33) toast("Kopyalandı")
     }
 
-    private fun share(text: String, title: String = "") {
+    internal fun share(text: String, title: String = "") {
         val i = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
         if (title.isNotEmpty()) i.putExtra(Intent.EXTRA_SUBJECT, title)
         startActivity(Intent.createChooser(i, "Paylaş"))
     }
 
-    private fun selectableBg(): Int {
+    internal fun selectableBg(): Int {
         val tv = TypedValue()
         theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)
         return tv.resourceId
     }
 
-    private fun textColor() = ContextCompat.getColor(this, R.color.onBar)
-    private fun mutedColor() = ContextCompat.getColor(this, R.color.muted)
+    internal fun textColor() = ContextCompat.getColor(this, R.color.onBar)
+    internal fun mutedColor() = ContextCompat.getColor(this, R.color.muted)
 
     // =====================================================================
     // Bul
     // =====================================================================
 
-    private fun openFind() {
+    internal fun openFind() {
         toolbar.visibility = View.GONE
         findBar.visibility = View.VISIBLE
         findInput.setText("")
@@ -658,7 +714,7 @@ class MainActivity : AppCompatActivity() {
         showKeyboard(findInput)
     }
 
-    private fun closeFind() {
+    internal fun closeFind() {
         current?.webView?.clearMatches()
         findBar.visibility = View.GONE
         toolbar.visibility = View.VISIBLE
@@ -669,7 +725,7 @@ class MainActivity : AppCompatActivity() {
     // Tam ekran video
     // =====================================================================
 
-    private fun showFullscreen(view: View, cb: WebChromeClient.CustomViewCallback) {
+    internal fun showFullscreen(view: View, cb: WebChromeClient.CustomViewCallback) {
         if (customView != null) { cb.onCustomViewHidden(); return }
         customView = view
         customCallback = cb
@@ -683,7 +739,7 @@ class MainActivity : AppCompatActivity() {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
     }
 
-    private fun hideFullscreen() {
+    internal fun hideFullscreen() {
         val v = customView ?: return
         fullscreen.removeView(v)
         fullscreen.visibility = View.GONE
@@ -704,8 +760,25 @@ class MainActivity : AppCompatActivity() {
         fun config(host: String): String {
             val page = tab.pageHost.ifEmpty { host.lowercase() }
             val on = Store.adblock && FilterManager.ready && page != ASSET_HOST && !Store.isAllowlisted(page)
-            return JSONObject().put("on", on).put("bg", Store.bool("bg_play", true))
-                .put("skip", Store.bool("auto_skip", true) && page != ASSET_HOST).toString()
+            val o = JSONObject().put("on", on).put("bg", Store.bool("bg_play", true))
+                .put("skip", Store.bool("auto_skip", true) && page != ASSET_HOST)
+            if (page != ASSET_HOST) {
+                val hide = Store.rulesFor("hide", page)
+                if (hide.isNotEmpty()) o.put("hide", hide.joinToString("") { "$it{display:none!important}" })
+                val skip = Store.rulesFor("skip", page)
+                if (skip.isNotEmpty()) o.put("skipSel", JSONArray(skip))
+            }
+            return o.toString()
+        }
+
+        @JavascriptInterface
+        fun rate(): Float = tab.rate
+
+        @JavascriptInterface
+        fun picked(mode: String, selector: String, label: String) {
+            if (selector.isBlank()) return
+            if (mode == "teach") tab.autoAllowUntil = System.currentTimeMillis() + 5000
+            ui.post { onPicked(tab, mode, selector, label) }
         }
 
         @JavascriptInterface
@@ -745,7 +818,7 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) { "" }
     }
 
-    private fun typeOf(req: WebResourceRequest): Int {
+    internal fun typeOf(req: WebResourceRequest): Int {
         val accept = req.requestHeaders["Accept"] ?: req.requestHeaders["accept"] ?: ""
         val path = req.url.path?.lowercase() ?: ""
         return when {
@@ -762,7 +835,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val emptyResponse: WebResourceResponse
+    internal val emptyResponse: WebResourceResponse
         get() = WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
 
     inner class Client(private val tab: Tab) : WebViewClient() {
@@ -801,6 +874,7 @@ class MainActivity : AppCompatActivity() {
             tab.title = view.title ?: tab.title
             if (isHome(url)) injectHome(tab)
             else if (!tab.incognito && url.startsWith("http")) Store.addHistory(url, view.title ?: "")
+            if (!isHome(url) && url.startsWith("http")) runUserScripts(tab)
             if (tab === current) { updateUrlBar(); updateNav(); swipe.isRefreshing = false }
             saveSessionSoon()
         }
@@ -852,7 +926,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleScheme(view: WebView, uri: Uri): Boolean {
+    internal fun handleScheme(view: WebView, uri: Uri): Boolean {
         val scheme = uri.scheme?.lowercase() ?: return false
         if (scheme in setOf("http", "https", "about", "data", "blob", "javascript", "file")) return false
         if (scheme == "intent") {
@@ -892,6 +966,19 @@ class MainActivity : AppCompatActivity() {
             if (tab === current) { updateProgress(); updateNav() }
         }
 
+        override fun onConsoleMessage(m: android.webkit.ConsoleMessage): Boolean {
+            val lvl = when (m.messageLevel()) {
+                android.webkit.ConsoleMessage.MessageLevel.ERROR -> 'E'
+                android.webkit.ConsoleMessage.MessageLevel.WARNING -> 'W'
+                android.webkit.ConsoleMessage.MessageLevel.DEBUG -> 'D'
+                android.webkit.ConsoleMessage.MessageLevel.TIP -> 'I'
+                else -> 'L'
+            }
+            val src = (m.sourceId() ?: "").substringAfterLast('/').substringBefore('?').take(40)
+            addConsole(tab, lvl, m.message() ?: "", if (src.isNotEmpty()) "$src:${m.lineNumber()}" else "")
+            return true
+        }
+
         override fun onReceivedTitle(view: WebView, title: String?) {
             tab.title = title ?: ""
         }
@@ -910,6 +997,7 @@ class MainActivity : AppCompatActivity() {
             fileCallback?.onReceiveValue(null)
             fileCallback = filePathCallback
             return try {
+                internalNav = true
                 fileChooser.launch(fileChooserParams.createIntent())
                 true
             } catch (_: Exception) {
@@ -949,7 +1037,7 @@ class MainActivity : AppCompatActivity() {
         override fun getDefaultVideoPoster(): Bitmap? = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
     }
 
-    private fun askWebPermission(request: PermissionRequest) {
+    internal fun askWebPermission(request: PermissionRequest) {
         val res = request.resources
         if (res.all { it == PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID }) {
             request.grant(res); return
@@ -977,7 +1065,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun askGeo(origin: String, cb: GeolocationPermissions.Callback) {
+    internal fun askGeo(origin: String, cb: GeolocationPermissions.Callback) {
         MaterialAlertDialogBuilder(this)
             .setTitle("Konum izni")
             .setMessage("${Uri.parse(origin).host ?: origin} konumunu öğrenmek istiyor.")
@@ -998,7 +1086,7 @@ class MainActivity : AppCompatActivity() {
     // Ana sayfa
     // =====================================================================
 
-    private fun injectHome(tab: Tab) {
+    internal fun injectHome(tab: Tab) {
         val sites = JSONArray()
         Store.topSites().forEach {
             sites.put(JSONObject().put("t", it.title.ifEmpty { hostOf(it.url) }).put("u", it.url))
@@ -1017,7 +1105,7 @@ class MainActivity : AppCompatActivity() {
     // İndirme & uzun basma
     // =====================================================================
 
-    private fun download(url: String, ua: String?, cd: String?, mime: String?, tab: Tab?) {
+    internal fun download(url: String, ua: String?, cd: String?, mime: String?, tab: Tab?) {
         if (url.startsWith("blob:") || url.startsWith("data:")) {
             toast("Bu indirme türü desteklenmiyor")
             return
@@ -1028,6 +1116,16 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val name = URLUtil.guessFileName(url, cd, mime)
+        if (Store.bool("internal_dl", true)) {
+            if (Build.VERSION.SDK_INT >= 33 && !has(Manifest.permission.POST_NOTIFICATIONS)) {
+                notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            DownloadEngine.add(url, Saver.sanitize(name), mime, tab?.url, ua ?: uaFor(tab))
+            Snackbar.make(root, "İndiriliyor: $name", Snackbar.LENGTH_LONG)
+                .setAction("Yönetici") { openDownloads() }
+                .show()
+            return
+        }
         try {
             val req = DownloadManager.Request(Uri.parse(url))
                 .setTitle(name)
@@ -1041,14 +1139,18 @@ class MainActivity : AppCompatActivity() {
             if (ref != null && ref.startsWith("http")) req.addRequestHeader("Referer", ref)
             (getSystemService(DOWNLOAD_SERVICE) as DownloadManager).enqueue(req)
             Snackbar.make(root, "İndiriliyor: $name", Snackbar.LENGTH_LONG)
-                .setAction("İndirilenler") { openDownloads() }
+                .setAction("İndirilenler") { openSystemDownloads() }
                 .show()
         } catch (e: Exception) {
             toast("İndirme başlatılamadı: ${e.message}")
         }
     }
 
-    private fun openDownloads() {
+    internal fun openDownloads() {
+        startActivity(Intent(this, DownloadsActivity::class.java))
+    }
+
+    internal fun openSystemDownloads() {
         try {
             startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: Exception) {
@@ -1056,7 +1158,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun longPress(tab: Tab): Boolean {
+    internal fun longPress(tab: Tab): Boolean {
         val r = tab.webView.hitTestResult
         val extra = r.extra ?: return false
         when (r.type) {
@@ -1074,7 +1176,7 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    private fun linkMenu(tab: Tab, url: String) {
+    internal fun linkMenu(tab: Tab, url: String) {
         val items = arrayOf("Yeni sekmede aç", "Arka planda aç", "Gizli sekmede aç", "Bağlantıyı kopyala", "Paylaş", "Bağlantıyı indir")
         MaterialAlertDialogBuilder(this)
             .setTitle(displayUrl(url))
@@ -1090,7 +1192,7 @@ class MainActivity : AppCompatActivity() {
             }.show()
     }
 
-    private fun imageMenu(tab: Tab, src: String, link: String?) {
+    internal fun imageMenu(tab: Tab, src: String, link: String?) {
         val labels = ArrayList<String>()
         val actions = ArrayList<() -> Unit>()
         if (link != null && link != src) {
@@ -1111,7 +1213,7 @@ class MainActivity : AppCompatActivity() {
     // Media Sniffer — sayfanın yüklediği tüm kaynaklar
     // =====================================================================
 
-    private fun recordResource(tab: Tab, request: WebResourceRequest): MediaItem? {
+    internal fun recordResource(tab: Tab, request: WebResourceRequest): MediaItem? {
         val u = request.url
         val scheme = u.scheme ?: return null
         if (scheme != "http" && scheme != "https") return null
@@ -1122,10 +1224,13 @@ class MainActivity : AppCompatActivity() {
         val accept = request.requestHeaders["Accept"] ?: request.requestHeaders["accept"] ?: ""
         val (label, cat) = MediaSniffer.describe(u, accept, request.isForMainFrame)
         val referer = request.requestHeaders["Referer"] ?: tab.url
-        return addResource(tab, u.toString(), label, cat, referer)
+        val item = addResource(tab, u.toString(), label, cat, referer)
+        item.method = request.method ?: "GET"
+        item.reqHeaders = HashMap(request.requestHeaders)
+        return item
     }
 
-    private fun addResource(tab: Tab, url: String, kind: String, cat: Int, referer: String?): MediaItem {
+    internal fun addResource(tab: Tab, url: String, kind: String, cat: Int, referer: String?): MediaItem {
         var newMedia = false
         val item = synchronized(tab.res) {
             val existing = tab.res[url]
@@ -1150,16 +1255,16 @@ class MainActivity : AppCompatActivity() {
         return item
     }
 
-    private fun preventMode(): String = Store.str("prevent_mode", "auto")
+    internal fun preventMode(): String = Store.str("prevent_mode", "auto")
 
-    private fun preventName(m: String) = when (m) {
+    internal fun preventName(m: String) = when (m) {
         "on" -> "Tam engel"
         "off" -> "Kapalı"
         else -> "Otomatik"
     }
 
     /** Ana çerçeve geçişi engellenmeli mi? */
-    private fun shouldPrevent(tab: Tab, request: WebResourceRequest): Boolean {
+    internal fun shouldPrevent(tab: Tab, request: WebResourceRequest): Boolean {
         val u = request.url
         val scheme = u.scheme?.lowercase() ?: return false
         if (scheme != "http" && scheme != "https" && scheme != "intent" && scheme != "market") return false
@@ -1178,7 +1283,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setPreventMode(m: String) {
+    internal fun setPreventMode(m: String) {
         Store.prefs.edit().putString("prevent_mode", m).apply()
         if (m == "on") current?.webView?.stopLoading()
         toast(when (m) {
@@ -1189,11 +1294,11 @@ class MainActivity : AppCompatActivity() {
         updatePreventBtn()
     }
 
-    private fun cyclePrevent() {
+    internal fun cyclePrevent() {
         setPreventMode(when (preventMode()) { "off" -> "auto"; "auto" -> "on"; else -> "off" })
     }
 
-    private fun showPreventMenu() {
+    internal fun showPreventMenu() {
         val pm = android.widget.PopupMenu(this, preventBtn)
         val m = preventMode()
         pm.menu.add(1, 1, 0, "Otomatik — istenmeyen yönlendirmeleri engelle").isChecked = m == "auto"
@@ -1220,7 +1325,7 @@ class MainActivity : AppCompatActivity() {
         pm.show()
     }
 
-    private fun updatePreventBtn() {
+    internal fun updatePreventBtn() {
         val m = preventMode()
         val color = when (m) {
             "on" -> Color.parseColor("#E5484D")
@@ -1231,22 +1336,22 @@ class MainActivity : AppCompatActivity() {
         preventBtn.contentDescription = "Sayfa yükleme engeli: " + preventName(m)
     }
 
-    private fun updateMediaBtn() {
+    internal fun updateMediaBtn() {
         val n = current?.mediaCount ?: 0
         mediaBtn.visibility = if (n > 0) View.VISIBLE else View.GONE
         mediaBadge.text = if (n > 99) "99+" else n.toString()
     }
 
-    private fun currentUA(): String = current?.webView?.settings?.userAgentString ?: mobileUA
+    internal fun currentUA(): String = current?.webView?.settings?.userAgentString ?: mobileUA
 
-    private fun ensureStorage(action: () -> Unit) {
+    internal fun ensureStorage(action: () -> Unit) {
         if (Saver.needsPermission(this)) {
             pendingAction = action
             permLauncher.launch(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE))
         } else action()
     }
 
-    private fun styledUrl(url: String): CharSequence {
+    internal fun styledUrl(url: String): CharSequence {
         val muted = mutedColor()
         val strong = textColor()
         val schemeEnd = url.indexOf("://").let { if (it < 0) 0 else it + 3 }
@@ -1259,7 +1364,7 @@ class MainActivity : AppCompatActivity() {
         return sp
     }
 
-    private fun showMedia() {
+    internal fun showMedia() {
         val t = current ?: return
         var filter = if (t.mediaCount > 0) MediaSniffer.CAT_MEDIA else MediaSniffer.CAT_ALL
         var query = ""
@@ -1534,10 +1639,10 @@ class MainActivity : AppCompatActivity() {
         d.show()
     }
 
-    private var refreshChipsAndListHolder: (() -> Unit)? = null
-    private fun refreshChipsAndList() { refreshChipsAndListHolder?.invoke() }
+    internal var refreshChipsAndListHolder: (() -> Unit)? = null
+    internal fun refreshChipsAndList() { refreshChipsAndListHolder?.invoke() }
 
-    private fun resourceActions(m: MediaItem, sheet: BottomSheetDialog) {
+    internal fun resourceActions(m: MediaItem, sheet: BottomSheetDialog) {
         val labels = ArrayList<String>()
         val acts = ArrayList<() -> Unit>()
         if (m.isMedia) {
@@ -1557,14 +1662,14 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun openCode(m: MediaItem) {
+    internal fun openCode(m: MediaItem) {
         startActivity(Intent(this, SourceActivity::class.java)
             .putExtra(SourceActivity.EXTRA_URL, m.url)
             .putExtra(SourceActivity.EXTRA_UA, currentUA())
             .putExtra(SourceActivity.EXTRA_FETCH, true))
     }
 
-    private fun downloadMedia(m: MediaItem) {
+    internal fun downloadMedia(m: MediaItem) {
         when (m.kind) {
             MediaSniffer.DASH -> toast("DASH akışları indirilemiyor — harici oynatıcıda açabilirsin")
             MediaSniffer.HLS -> ensureStorage {
@@ -1579,7 +1684,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun openExternal(m: MediaItem) {
+    internal fun openExternal(m: MediaItem) {
         val i = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(m.url), MediaSniffer.mimeOf(m))
         val h = MediaSniffer.headers(m.url, m.referer, currentUA())
         i.putExtra("headers", h.flatMap { listOf(it.key, it.value) }.toTypedArray())
@@ -1595,7 +1700,7 @@ class MainActivity : AppCompatActivity() {
     // Kaynak kodu & sayfa kaydetme
     // =====================================================================
 
-    private fun fetchLiveHtml(tab: Tab, cb: (String?) -> Unit) {
+    internal fun fetchLiveHtml(tab: Tab, cb: (String?) -> Unit) {
         val js = "(function(){var q=String.fromCharCode(34);var d=document.doctype;" +
             "var s=d?'<!DOCTYPE '+d.name+(d.publicId?' PUBLIC '+q+d.publicId+q:'')+(d.systemId?' '+q+d.systemId+q:'')+'>\\n':'';" +
             "return s+document.documentElement.outerHTML;})()"
@@ -1607,7 +1712,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun viewSource(tab: Tab) {
+    internal fun viewSource(tab: Tab) {
         fetchLiveHtml(tab) { html ->
             if (html == null) { toast("Kaynak kodu alınamadı"); return@fetchLiveHtml }
             val ua = tab.webView.settings.userAgentString
@@ -1628,7 +1733,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun savePage(tab: Tab) {
+    internal fun savePage(tab: Tab) {
         val name = Saver.sanitize(tab.title.ifBlank { tab.pageHost })
         val items = arrayOf(
             "Web arşivi (.mht) — resimlerle tek dosya",
@@ -1646,7 +1751,7 @@ class MainActivity : AppCompatActivity() {
             }.show()
     }
 
-    private fun saveInBackground(fileName: String, mime: String, write: (java.io.OutputStream) -> Unit, after: () -> Unit = {}) {
+    internal fun saveInBackground(fileName: String, mime: String, write: (java.io.OutputStream) -> Unit, after: () -> Unit = {}) {
         Thread {
             val msg = try {
                 Saver.save(this, fileName, mime, write)
@@ -1660,7 +1765,7 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun saveMht(tab: Tab, name: String) {
+    internal fun saveMht(tab: Tab, name: String) {
         val tmp = java.io.File(cacheDir, "page_${System.currentTimeMillis()}.mht")
         tab.webView.saveWebArchive(tmp.path, false) { path ->
             if (path == null) {
@@ -1672,14 +1777,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveHtml(tab: Tab, name: String) {
+    internal fun saveHtml(tab: Tab, name: String) {
         fetchLiveHtml(tab) { html ->
             if (html == null) toast("Sayfa kodu alınamadı")
             else saveInBackground("$name.html", "text/html", { o -> o.write(html.toByteArray()) })
         }
     }
 
-    private fun translate(url: String) {
+    internal fun translate(url: String) {
         loadInCurrent("https://translate.google.com/translate?sl=auto&tl=tr&u=" + java.net.URLEncoder.encode(url, "UTF-8"))
     }
 
@@ -1688,7 +1793,7 @@ class MainActivity : AppCompatActivity() {
     // Menü
     // =====================================================================
 
-    private fun showMenu() {
+    internal fun showMenu() {
         val t = current
         val d = BottomSheetDialog(this)
         val box = LinearLayout(this).apply {
@@ -1784,12 +1889,9 @@ class MainActivity : AppCompatActivity() {
 
         tile(R.drawable.ic_vpn, "VPN & Koruma") { startActivity(Intent(this, VpnActivity::class.java)) }
         tile(R.drawable.ic_settings, "Ayarlar") { startActivity(Intent(this, SettingsActivity::class.java)) }
-        tile(R.drawable.ic_sweep, "Gizlileri kapat") {
-            tabs.filter { it.incognito }.forEach { closeTab(it) }
-            toast("Gizli sekmeler kapatıldı")
-        }
+        tile(R.drawable.ic_build, "Araçlar") { showTools() }
         tile(R.drawable.ic_exit, "Çıkış") {
-            saveSession()
+            if (Store.bool("clear_on_exit", false)) clearAllData() else saveSession()
             tabs.filter { it.incognito }.forEach { closeTab(it) }
             finishAndRemoveTask()
         }
@@ -1798,18 +1900,33 @@ class MainActivity : AppCompatActivity() {
         d.show()
     }
 
-    private fun openLibrary(mode: String) {
+    internal fun openLibrary(mode: String) {
         startActivity(Intent(this, LibraryActivity::class.java).putExtra(LibraryActivity.EXTRA_MODE, mode))
     }
 
-    private fun toggleDesktop(tab: Tab) {
+    internal fun uaFor(tab: Tab?): String {
+        if (tab?.desktop == true) return desktopUA
+        val chrome = Regex("Chrome/([\\d.]+)").find(mobileUA)?.groupValues?.get(1) ?: "130.0.0.0"
+        return when (Store.str("ua_mode", "default")) {
+            "desktop" -> desktopUA
+            "windows" -> "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$chrome Safari/537.36"
+            "iphone" -> "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+            "ipad" -> "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+            "firefox" -> "Mozilla/5.0 (Android 14; Mobile; rv:131.0) Gecko/131.0 Firefox/131.0"
+            "bot" -> "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+            "custom" -> Store.str("ua_custom", "").ifBlank { mobileUA }
+            else -> mobileUA
+        }
+    }
+
+    internal fun toggleDesktop(tab: Tab) {
         tab.desktop = !tab.desktop
-        tab.webView.settings.userAgentString = if (tab.desktop) desktopUA else mobileUA
+        tab.webView.settings.userAgentString = uaFor(tab)
         tab.webView.reload()
         toast(if (tab.desktop) "Masaüstü sitesi istendi" else "Mobil site istendi")
     }
 
-    private fun print(tab: Tab) {
+    internal fun print(tab: Tab) {
         val pm = getSystemService(PRINT_SERVICE) as PrintManager
         val name = tab.title.ifEmpty { "Kalkan sayfası" }
         pm.print(name, tab.webView.createPrintDocumentAdapter(name), PrintAttributes.Builder().build())
@@ -1819,7 +1936,7 @@ class MainActivity : AppCompatActivity() {
     // Sekme listesi
     // =====================================================================
 
-    private fun showTabs() {
+    internal fun showTabs() {
         val d = BottomSheetDialog(this)
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1912,7 +2029,7 @@ class MainActivity : AppCompatActivity() {
     // Kalkan paneli
     // =====================================================================
 
-    private fun showShield() {
+    internal fun showShield() {
         val t = current
         val d = BottomSheetDialog(this)
         val box = LinearLayout(this).apply {
@@ -1996,14 +2113,14 @@ class MainActivity : AppCompatActivity() {
     // Oturum & intent
     // =====================================================================
 
-    private val saveRunnable = Runnable { saveSession() }
+    internal val saveRunnable = Runnable { saveSession() }
 
-    private fun saveSessionSoon() {
+    internal fun saveSessionSoon() {
         ui.removeCallbacks(saveRunnable)
         ui.postDelayed(saveRunnable, 1500)
     }
 
-    private fun saveSession() {
+    internal fun saveSession() {
         val normal = tabs.filter { !it.incognito }
         val arr = JSONArray()
         normal.forEach { arr.put(it.pendingUrl ?: it.url.ifEmpty { HOME_URL }) }
@@ -2013,7 +2130,7 @@ class MainActivity : AppCompatActivity() {
             .apply()
     }
 
-    private fun restoreSession(): Boolean {
+    internal fun restoreSession(): Boolean {
         if (!Store.bool("restore_tabs", true)) return false
         return try {
             val arr = JSONArray(Store.prefs.getString("session", "[]"))
@@ -2027,7 +2144,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleIntent(intent: Intent?): Boolean {
+    internal fun handleIntent(intent: Intent?): Boolean {
         val i = intent ?: return false
         val url: String? = when (i.action) {
             Intent.ACTION_VIEW -> i.dataString
