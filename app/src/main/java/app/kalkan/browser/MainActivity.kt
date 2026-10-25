@@ -106,6 +106,7 @@ class MainActivity : AppCompatActivity() {
         var pendingUrl: String? = null
         val res = LinkedHashMap<String, MediaItem>()
         @Volatile var mediaCount = 0
+        @Volatile var preventLoad = false
     }
 
     private val tabs = ArrayList<Tab>()
@@ -131,6 +132,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var fullscreen: FrameLayout
     private lateinit var mediaBtn: View
     private lateinit var mediaBadge: TextView
+    private lateinit var preventBtn: ImageButton
 
     private lateinit var assetLoader: WebViewAssetLoader
     private val ui = Handler(Looper.getMainLooper())
@@ -257,6 +259,7 @@ class MainActivity : AppCompatActivity() {
         fullscreen = findViewById(R.id.fullscreen)
         mediaBtn = findViewById(R.id.mediaBtn)
         mediaBadge = findViewById(R.id.mediaBadge)
+        preventBtn = findViewById(R.id.preventBtn)
     }
 
     // =====================================================================
@@ -295,6 +298,11 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.shieldBtn).setOnClickListener { showShield() }
         mediaBtn.setOnClickListener { showMedia() }
+        preventBtn.setOnClickListener { togglePrevent() }
+        preventBtn.setOnLongClickListener {
+            toast(if (current?.preventLoad == true) "Sayfa yükleme engeli AÇIK" else "Sayfa yükleme engeli KAPALI")
+            true
+        }
         backBtn.setOnClickListener { current?.webView?.let { if (it.canGoBack()) it.goBack() } }
         forwardBtn.setOnClickListener { current?.webView?.let { if (it.canGoForward()) it.goForward() } }
         findViewById<View>(R.id.homeBtn).setOnClickListener { loadInCurrent(HOME_URL) }
@@ -534,7 +542,7 @@ class MainActivity : AppCompatActivity() {
     // =====================================================================
 
     private fun updateAll() {
-        updateUrlBar(); updateNav(); updateProgress(); updateShield(); updateTabCount(); updateMediaBtn()
+        updateUrlBar(); updateNav(); updateProgress(); updateShield(); updateTabCount(); updateMediaBtn(); updatePreventBtn()
     }
 
     private fun isHome(url: String) = url.startsWith(HOME_URL)
@@ -748,8 +756,20 @@ class MainActivity : AppCompatActivity() {
 
     inner class Client(private val tab: Tab) : WebViewClient() {
 
-        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-            handleScheme(view, request.url)
+        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+            val u = request.url
+            val scheme = u.scheme?.lowercase()
+            if (tab.preventLoad && request.isForMainFrame && (scheme == "http" || scheme == "https" || scheme == "intent")) {
+                val target = u.toString()
+                if (tab === current) {
+                    Snackbar.make(root, "Yükleme engellendi: ${displayUrl(target)}", Snackbar.LENGTH_LONG)
+                        .setAction("Yine de aç") { tab.webView.loadUrl(target) }
+                        .show()
+                }
+                return true
+            }
+            return handleScheme(view, u)
+        }
 
         override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
             tab.url = url
@@ -896,6 +916,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+            if (tab.preventLoad) {
+                toast("Yükleme engeli açık: yeni pencere engellendi")
+                return false
+            }
             if (!isUserGesture && Store.bool("popup_block", true)) {
                 toast("Açılır pencere engellendi")
                 return false
@@ -1113,6 +1137,24 @@ class MainActivity : AppCompatActivity() {
         }
         if (newMedia && tab === current) ui.post { updateMediaBtn() }
         return item
+    }
+
+    private fun togglePrevent() {
+        val t = current ?: return
+        t.preventLoad = !t.preventLoad
+        if (t.preventLoad) {
+            t.webView.stopLoading()
+            toast("Sayfa yükleme engellendi — yönlendirme ve geçişler durduruldu")
+        } else {
+            toast("Sayfa yükleme engeli kaldırıldı")
+        }
+        updatePreventBtn()
+    }
+
+    private fun updatePreventBtn() {
+        val on = current?.preventLoad == true
+        preventBtn.imageTintList = ColorStateList.valueOf(if (on) Color.parseColor("#E5484D") else mutedColor())
+        preventBtn.contentDescription = if (on) "Sayfa yükleme engelini kapat" else "Sayfa yüklemeyi engelle"
     }
 
     private fun updateMediaBtn() {
