@@ -26,4 +26,14 @@
         <item>130</item>
         <item>150</item>
     </string-array>
+    <string-array name="prevent_names">
+        <item>Otomatik (istenmeyen yönlendirmeler)</item>
+        <item>Tam engel</item>
+        <item>Kapalı</item>
+    </string-array>
+    <string-array name="prevent_values">
+        <item>auto</item>
+        <item>on</item>
+        <item>off</item>
+    </string-array>
 </resources>

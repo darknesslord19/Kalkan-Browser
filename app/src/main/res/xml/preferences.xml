@@ -68,6 +68,20 @@
             app:title="JavaScript"
             app:defaultValue="true"
             app:iconSpaceReserved="false" />
+        <ListPreference
+            app:key="prevent_mode"
+            app:title="Sayfa yükleme engeli"
+            app:defaultValue="auto"
+            app:entries="@array/prevent_names"
+            app:entryValues="@array/prevent_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            app:key="auto_skip"
+            app:title="Atla / Devam düğmelerine otomatik bas"
+            app:summary="Ara sayfalardaki geçiş düğmelerine kendisi basar, reklam düğmelerini atlar"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
         <Preference
             app:key="allowlist"
             app:title="Korumanın kapalı olduğu siteler"

@@ -24,6 +24,41 @@ object Scripts {
     } catch(e) {}
   }
 
+  // Otomatik atlama: "Atla / Devam / Linke git" türü ara sayfa düğmelerine bas
+  if (cfg.skip && window.top === window && K.autoClick) {
+    var OK = /^\s*(skip|skip ad|skip ads|skip now|skip this ad|atla|reklam[ıi] atla|reklam[ıi] geç|geç|devam|devam et|devam etmek için tıkla(y[ıi]n)?|continue|continue to (site|link|page)|get link|go to link|go to site|visit (link|site)|open link|proceed|linke git|linki aç|bağlantıya git|siteye git|click here to continue|tıkla(y[ıi]n)? ve devam et)\s*[!.»›>→]*\s*$/i;
+    var BAD = /(indir|download|install|kur\b|yükle|kayıt|register|sign ?up|log ?in|giriş|satın|buy|öde|pay|abone|subscribe|kabul|accept|allow|izin|bildirim|notification)/i;
+    var done = new WeakSet(), clicks = 0;
+    var usable = function(el){
+      if (el.disabled || el.getAttribute('aria-disabled') === 'true') return false;
+      var r = el.getBoundingClientRect();
+      if (r.width < 24 || r.height < 14) return false;
+      var cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) < 0.3 || cs.pointerEvents === 'none') return false;
+      var f = el.closest('form');
+      if (f && f.querySelector('input[type=password],input[type=email],input[type=tel],input[name*=card]')) return false;
+      return true;
+    };
+    var trySkip = function(){
+      if (clicks >= 4) return;
+      var els = document.querySelectorAll('a,button,input[type=submit],input[type=button],[role=button],[onclick]');
+      for (var i=0;i<els.length;i++) {
+        var el = els[i];
+        if (done.has(el)) continue;
+        var t = (el.innerText || el.value || el.getAttribute('aria-label') || '').replace(/\s+/g,' ').trim();
+        if (!t || t.length > 40 || !OK.test(t) || BAD.test(t)) continue;
+        if (!usable(el)) continue;
+        var href = (el.tagName === 'A' && el.href && !/^javascript:/i.test(el.href)) ? el.href : '';
+        if (href && K.isAd(href)) { done.add(el); continue; }
+        done.add(el); clicks++;
+        K.autoClick(href || location.href, t);
+        el.click();
+        return;
+      }
+    };
+    setInterval(trySkip, 1000);
+  }
+
   // Medya yakalayıcı: oynatıcıların gerçek kaynaklarını bildir
   if (K.media) {
     var seenM = new Set();

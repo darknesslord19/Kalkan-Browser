@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
         var pendingUrl: String? = null
         val res = LinkedHashMap<String, MediaItem>()
         @Volatile var mediaCount = 0
-        @Volatile var preventLoad = false
+        @Volatile var autoAllowUntil = 0L
     }
 
     private val tabs = ArrayList<Tab>()
@@ -298,11 +298,8 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.shieldBtn).setOnClickListener { showShield() }
         mediaBtn.setOnClickListener { showMedia() }
-        preventBtn.setOnClickListener { togglePrevent() }
-        preventBtn.setOnLongClickListener {
-            toast(if (current?.preventLoad == true) "Sayfa yükleme engeli AÇIK" else "Sayfa yükleme engeli KAPALI")
-            true
-        }
+        preventBtn.setOnClickListener { showPreventMenu() }
+        preventBtn.setOnLongClickListener { cyclePrevent(); true }
         backBtn.setOnClickListener { current?.webView?.let { if (it.canGoBack()) it.goBack() } }
         forwardBtn.setOnClickListener { current?.webView?.let { if (it.canGoForward()) it.goForward() } }
         findViewById<View>(R.id.homeBtn).setOnClickListener { loadInCurrent(HOME_URL) }
@@ -707,7 +704,21 @@ class MainActivity : AppCompatActivity() {
         fun config(host: String): String {
             val page = tab.pageHost.ifEmpty { host.lowercase() }
             val on = Store.adblock && FilterManager.ready && page != ASSET_HOST && !Store.isAllowlisted(page)
-            return JSONObject().put("on", on).put("bg", Store.bool("bg_play", true)).toString()
+            return JSONObject().put("on", on).put("bg", Store.bool("bg_play", true))
+                .put("skip", Store.bool("auto_skip", true) && page != ASSET_HOST).toString()
+        }
+
+        @JavascriptInterface
+        fun isAd(url: String): Boolean = try {
+            val h = Uri.parse(url).host?.lowercase() ?: ""
+            h.isNotEmpty() && (FilterManager.engine.isDomainBlocked(h) ||
+                FilterManager.engine.shouldBlock(url, h, tab.pageHost, 0))
+        } catch (_: Exception) { false }
+
+        @JavascriptInterface
+        fun autoClick(target: String, label: String) {
+            tab.autoAllowUntil = System.currentTimeMillis() + 5000
+            ui.post { if (tab === current) toast("Otomatik geçildi: \u201C${label.take(30)}\u201D") }
         }
 
         @JavascriptInterface
@@ -759,7 +770,7 @@ class MainActivity : AppCompatActivity() {
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
             val u = request.url
             val scheme = u.scheme?.lowercase()
-            if (tab.preventLoad && request.isForMainFrame && (scheme == "http" || scheme == "https" || scheme == "intent")) {
+            if (request.isForMainFrame && shouldPrevent(tab, request)) {
                 val target = u.toString()
                 if (tab === current) {
                     Snackbar.make(root, "Yükleme engellendi: ${displayUrl(target)}", Snackbar.LENGTH_LONG)
@@ -916,7 +927,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
-            if (tab.preventLoad) {
+            if (preventMode() == "on" && System.currentTimeMillis() > tab.autoAllowUntil) {
                 toast("Yükleme engeli açık: yeni pencere engellendi")
                 return false
             }
@@ -1139,22 +1150,85 @@ class MainActivity : AppCompatActivity() {
         return item
     }
 
-    private fun togglePrevent() {
-        val t = current ?: return
-        t.preventLoad = !t.preventLoad
-        if (t.preventLoad) {
-            t.webView.stopLoading()
-            toast("Sayfa yükleme engellendi — yönlendirme ve geçişler durduruldu")
-        } else {
-            toast("Sayfa yükleme engeli kaldırıldı")
+    private fun preventMode(): String = Store.str("prevent_mode", "auto")
+
+    private fun preventName(m: String) = when (m) {
+        "on" -> "Tam engel"
+        "off" -> "Kapalı"
+        else -> "Otomatik"
+    }
+
+    /** Ana çerçeve geçişi engellenmeli mi? */
+    private fun shouldPrevent(tab: Tab, request: WebResourceRequest): Boolean {
+        val u = request.url
+        val scheme = u.scheme?.lowercase() ?: return false
+        if (scheme != "http" && scheme != "https" && scheme != "intent" && scheme != "market") return false
+        if (System.currentTimeMillis() < tab.autoAllowUntil) return false
+        return when (preventMode()) {
+            "on" -> true
+            "auto" -> {
+                if (request.hasGesture() || request.isRedirect) return false
+                if (scheme == "intent" || scheme == "market") return true
+                val page = tab.pageHost
+                if (page.isEmpty() || page == ASSET_HOST) return false
+                val target = u.host?.lowercase() ?: return false
+                AdBlockEngine.baseDomain(page) != AdBlockEngine.baseDomain(target)
+            }
+            else -> false
         }
+    }
+
+    private fun setPreventMode(m: String) {
+        Store.prefs.edit().putString("prevent_mode", m).apply()
+        if (m == "on") current?.webView?.stopLoading()
+        toast(when (m) {
+            "on" -> "Tam engel: sayfa hiçbir yere geçemez"
+            "auto" -> "Otomatik: istenmeyen yönlendirmeler engellenir"
+            else -> "Sayfa yükleme engeli kapalı"
+        })
         updatePreventBtn()
     }
 
+    private fun cyclePrevent() {
+        setPreventMode(when (preventMode()) { "off" -> "auto"; "auto" -> "on"; else -> "off" })
+    }
+
+    private fun showPreventMenu() {
+        val pm = android.widget.PopupMenu(this, preventBtn)
+        val m = preventMode()
+        pm.menu.add(1, 1, 0, "Otomatik — istenmeyen yönlendirmeleri engelle").isChecked = m == "auto"
+        pm.menu.add(1, 2, 1, "Tam engel — hiçbir geçişe izin verme").isChecked = m == "on"
+        pm.menu.add(1, 3, 2, "Kapalı").isChecked = m == "off"
+        pm.menu.setGroupCheckable(1, true, true)
+        pm.menu.add(2, 4, 3, "Atla / Devam düğmelerine otomatik bas").apply {
+            isCheckable = true
+            isChecked = Store.bool("auto_skip", true)
+        }
+        pm.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> setPreventMode("auto")
+                2 -> setPreventMode("on")
+                3 -> setPreventMode("off")
+                4 -> {
+                    val now = !Store.bool("auto_skip", true)
+                    Store.prefs.edit().putBoolean("auto_skip", now).apply()
+                    toast(if (now) "Otomatik atlama açık (sayfayı yenileyince başlar)" else "Otomatik atlama kapalı")
+                }
+            }
+            true
+        }
+        pm.show()
+    }
+
     private fun updatePreventBtn() {
-        val on = current?.preventLoad == true
-        preventBtn.imageTintList = ColorStateList.valueOf(if (on) Color.parseColor("#E5484D") else mutedColor())
-        preventBtn.contentDescription = if (on) "Sayfa yükleme engelini kapat" else "Sayfa yüklemeyi engelle"
+        val m = preventMode()
+        val color = when (m) {
+            "on" -> Color.parseColor("#E5484D")
+            "auto" -> ContextCompat.getColor(this, R.color.brand)
+            else -> mutedColor()
+        }
+        preventBtn.imageTintList = ColorStateList.valueOf(color)
+        preventBtn.contentDescription = "Sayfa yükleme engeli: " + preventName(m)
     }
 
     private fun updateMediaBtn() {
