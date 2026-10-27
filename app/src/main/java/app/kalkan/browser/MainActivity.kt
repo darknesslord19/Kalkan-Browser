@@ -103,6 +103,7 @@ class MainActivity : AppCompatActivity() {
         var progress = 100
         var desktop = false
         var favicon: Bitmap? = null
+        var thumb: Bitmap? = null
         var pendingUrl: String? = null
         val res = LinkedHashMap<String, MediaItem>()
         @Volatile var mediaCount = 0
@@ -520,6 +521,7 @@ class MainActivity : AppCompatActivity() {
     internal fun switchTo(tab: Tab) {
         val prev = current
         if (prev != null && prev !== tab) {
+            captureThumb(prev)
             webContainer.removeView(prev.webView)
         }
         current = tab
@@ -1935,95 +1937,6 @@ class MainActivity : AppCompatActivity() {
     // =====================================================================
     // Sekme listesi
     // =====================================================================
-
-    internal fun showTabs() {
-        val d = BottomSheetDialog(this)
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(8), dp(12), dp(12))
-        }
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val title = TextView(this).apply {
-            textSize = 18f
-            setTextColor(textColor())
-            setPadding(dp(8), 0, 0, 0)
-        }
-        header.addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        fun hb(label: String, action: () -> Unit) = MaterialButton(this, null, androidx.appcompat.R.attr.borderlessButtonStyle).apply {
-            text = label
-            setOnClickListener { action() }
-        }
-        header.addView(hb("+ Sekme") { d.dismiss(); newTab(HOME_URL, false) })
-        header.addView(hb("+ Gizli") { d.dismiss(); newTab(HOME_URL, true) })
-        header.addView(hb("Tümünü kapat") { d.dismiss(); closeAllTabs() })
-        box.addView(header)
-
-        val rv = RecyclerView(this)
-        rv.layoutManager = LinearLayoutManager(this)
-        val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-            override fun getItemCount() = tabs.size
-            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-                val row = LinearLayout(parent.context).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(12), dp(10), dp(4), dp(10))
-                    layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                        bottomMargin = dp(6)
-                    }
-                }
-                val icon = ImageView(parent.context).apply { id = View.generateViewId() }
-                row.addView(icon, LinearLayout.LayoutParams(dp(22), dp(22)))
-                val col = LinearLayout(parent.context).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(dp(12), 0, dp(8), 0)
-                }
-                val t1 = TextView(parent.context).apply { textSize = 15f; maxLines = 1; setTextColor(textColor()) }
-                val t2 = TextView(parent.context).apply { textSize = 12f; maxLines = 1; setTextColor(mutedColor()) }
-                col.addView(t1); col.addView(t2)
-                row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                val close = ImageButton(parent.context).apply {
-                    setImageResource(R.drawable.ic_close)
-                    setBackgroundResource(selectableBg())
-                    contentDescription = "Kapat"
-                }
-                row.addView(close, LinearLayout.LayoutParams(dp(44), dp(44)))
-                row.tag = arrayOf<View>(icon, t1, t2, close)
-                return object : RecyclerView.ViewHolder(row) {}
-            }
-
-            override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-                val tab = tabs[position]
-                @Suppress("UNCHECKED_CAST")
-                val v = holder.itemView.tag as Array<View>
-                val icon = v[0] as ImageView
-                if (tab.favicon != null) icon.setImageBitmap(tab.favicon)
-                else icon.setImageResource(if (tab.incognito) R.drawable.ic_lock else R.drawable.ic_search)
-                val home = isHome(tab.url) || tab.url.isEmpty()
-                (v[1] as TextView).text = (if (tab.incognito) "Gizli · " else "") +
-                    (if (home) "Yeni sekme" else tab.title.ifEmpty { displayUrl(tab.url) })
-                (v[2] as TextView).text = if (home) "Kalkan" else displayUrl(tab.url)
-                holder.itemView.setBackgroundResource(if (tab === current) R.drawable.bg_card_active else R.drawable.bg_tile)
-                holder.itemView.setOnClickListener { d.dismiss(); switchTo(tab) }
-                v[3].setOnClickListener {
-                    closeTab(tab)
-                    title.text = "Sekmeler (${tabs.size})"
-                    notifyDataSetChanged()
-                }
-            }
-        }
-        rv.adapter = adapter
-        title.text = "Sekmeler (${tabs.size})"
-        box.addView(rv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        d.setContentView(box)
-        d.behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.7).toInt()
-        d.behavior.state = BottomSheetBehavior.STATE_COLLAPSED
-        d.show()
-        val idx = tabs.indexOf(current)
-        if (idx >= 0) rv.scrollToPosition(idx)
-    }
 
     // =====================================================================
     // Kalkan paneli
