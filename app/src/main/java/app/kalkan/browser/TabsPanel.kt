@@ -91,7 +91,9 @@ private fun MainActivity.faviconView(size: Int): FrameLayout {
 
 private fun MainActivity.bindFavicon(f: FrameLayout, t: MainActivity.Tab) {
     @Suppress("UNCHECKED_CAST")
-    val (iv, letter) = f.tag as Pair<ImageView, TextView>
+    val pair = f.tag as Pair<ImageView, TextView>
+    val iv = pair.first
+    val letter = pair.second
     val fav = t.favicon
     when {
         fav != null && !fav.isRecycled -> {
