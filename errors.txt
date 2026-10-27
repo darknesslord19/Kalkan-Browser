@@ -1,0 +1,53 @@
+3:> Task :app:preBuild UP-TO-DATE
+4:> Task :app:preReleaseBuild UP-TO-DATE
+5:> Task :app:mergeReleaseJniLibFolders
+6:> Task :app:mergeReleaseArtProfile
+7:> Task :app:mergeReleaseNativeLibs
+8:> Task :app:checkReleaseDuplicateClasses
+10:> Task :app:stripReleaseDebugSymbols
+13:> Task :app:extractReleaseNativeSymbolTables
+14:> Task :app:buildKotlinToolingMetadata
+15:> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+16:> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+17:> Task :app:generateReleaseBuildConfig
+18:> Task :app:expandReleaseL8ArtProfileWildcards
+19:> Task :app:generateReleaseResValues
+20:> Task :app:checkReleaseAarMetadata
+21:> Task :app:mapReleaseSourceSetPaths
+22:> Task :app:generateReleaseResources
+23:> Task :app:packageReleaseResources
+24:> Task :app:createReleaseCompatibleScreenManifests
+25:> Task :app:extractDeepLinksRelease
+26:> Task :app:parseReleaseLocalResources
+27:> Task :app:processReleaseMainManifest
+28:> Task :app:mergeReleaseResources
+29:> Task :app:processReleaseManifest
+30:> Task :app:processReleaseManifestForPackage
+31:> Task :app:javaPreCompileRelease
+32:> Task :app:desugarReleaseFileDependencies
+33:> Task :app:mergeReleaseStartupProfile
+34:> Task :app:mergeReleaseShaders
+35:> Task :app:compileReleaseShaders NO-SOURCE
+36:> Task :app:generateReleaseAssets UP-TO-DATE
+37:> Task :app:mergeReleaseAssets
+38:> Task :app:compressReleaseAssets
+39:> Task :app:processReleaseResources
+40:> Task :app:extractReleaseVersionControlInfo
+41:> Task :app:collectReleaseDependencies
+42:> Task :app:sdkReleaseDependencyData
+43:> Task :app:validateSigningRelease
+44:> Task :app:optimizeReleaseResources
+45:> Task :app:writeReleaseAppMetadata
+46:> Task :app:writeReleaseSigningConfigVersions
+47:> Task :app:mergeExtDexRelease
+49:> Task :app:compileReleaseKotlin
+50:e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+52:e: file:///home/runner/work/Kalkan-Browser/Kalkan-Browser/app/src/main/java/app/kalkan/browser/TabsPanel.kt:93:5 This annotation is not applicable to target 'destructuring declaration'.
+54:> Task :app:compileReleaseKotlin FAILED
+57:FAILURE: Build failed with an exception.
+59:* What went wrong:
+61:> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+62:   > Compilation error. See log for more details
+65:> Run with --info or --debug option to get more log output.
+66:> Run with --scan to get full insights.
+67:> Get more help at https://help.gradle.org.
