@@ -1,0 +1,56 @@
+name: CloudStream eklentisini derle
+
+on:
+  push:
+    branches: [cs3-test]
+    paths-ignore:
+      - '*.md'
+      - '**/ENDPOINTS.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12'
+
+      - name: Eklentiyi derle
+        run: |
+          gradle make makePluginsJson --no-daemon --stacktrace
+          mkdir -p out
+          cp */build/*.cs3 out/
+          cp build/plugins.json out/
+          OWNER_REPO="$GITHUB_REPOSITORY"
+          cat > out/repo.json <<JSON
+          {
+            "name": "OrnekSite Eklentileri",
+            "description": "Kalkan Tarayıcı ile oluşturuldu",
+            "manifestVersion": 1,
+            "pluginLists": ["https://raw.githubusercontent.com/$OWNER_REPO/builds/plugins.json"]
+          }
+          JSON
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cs3
+          path: out/
+
