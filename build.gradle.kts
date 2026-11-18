@@ -76,8 +76,8 @@ subprojects {
         cloudstream("com.lagradost:cloudstream3:pre-release")
 
         implementation(kotlin("stdlib"))
-        implementation("com.github.Blatzar:NiceHttp:0.4.11")
-        implementation("org.jsoup:jsoup:1.18.3")
+        implementation("com.github.Blatzar:NiceHttp:0.4.18")
+        implementation("org.jsoup:jsoup:1.22.1")
         // Jackson'ı 2.13.1'in üstüne çıkarma: eski cihazlarda bozulur
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
     }
