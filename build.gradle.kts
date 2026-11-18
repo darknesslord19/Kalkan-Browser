@@ -78,6 +78,8 @@ subprojects {
         implementation(kotlin("stdlib"))
         implementation("com.github.Blatzar:NiceHttp:0.4.18")
         implementation("org.jsoup:jsoup:1.22.1")
+        // jsoup 1.22 tür açıklamaları için gerekli
+        implementation("org.jspecify:jspecify:1.0.0")
         // Jackson'ı 2.13.1'in üstüne çıkarma: eski cihazlarda bozulur
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
     }
