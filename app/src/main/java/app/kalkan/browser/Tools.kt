@@ -293,6 +293,7 @@ internal fun MainActivity.showTools() {
         badge = { current?.let { c -> synchronized(c.console) { c.console.count { it.level == 'E' } } } ?: 0 }) { showConsole() }
     tile(dev, R.drawable.ic_api, "API uçları",
         badge = { current?.let { c -> synchronized(c.apis) { c.apis.size } } ?: 0 }) { showApis() }
+    tile(dev, R.drawable.ic_cs, "CloudStream iskeleti") { exportCloudStream() }
     tile(dev, R.drawable.ic_network, "Ağ kaydı") { showNetwork() }
     tile(dev, R.drawable.ic_cookie, "Çerez & depolama") { showStorage() }
     tile(dev, R.drawable.ic_extension, "Betikler",

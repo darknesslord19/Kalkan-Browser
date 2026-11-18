@@ -413,22 +413,7 @@ internal fun MainActivity.showApis() {
     lateinit var rv: RecyclerView
     lateinit var refresh: () -> Unit
 
-    fun all(): List<ApiEp> {
-        val m = LinkedHashMap<String, ApiEp>()
-        t.apiDocs?.forEach { m[ApiFinder.key(it.method, it.url)] = it }
-        t.apiScan?.forEach { m[ApiFinder.key(it.method, it.url)] = it }
-        synchronized(t.res) { t.res.values.toList() }.forEach { r ->
-            if (r.category == MediaSniffer.CAT_OTHER && !r.blocked && ApiFinder.isApiLike(r.url, "", "")) {
-                val k = ApiFinder.key(r.method, r.url)
-                if (!m.containsKey(k)) m[k] = ApiEp(r.method, r.url, ApiFinder.SRC_NET).apply { time = r.time }
-            }
-        }
-        synchronized(t.apis) { t.apis.values.toList() }.forEach { e ->
-            m.remove(ApiFinder.key("", e.url))
-            m[ApiFinder.key(e.method, e.url)] = e
-        }
-        return m.values.toList()
-    }
+    fun all(): List<ApiEp> = collectApis(t)
 
     fun methodColor(m: String) = Color.parseColor(
         when (m) {
@@ -645,6 +630,7 @@ internal fun MainActivity.showApis() {
     actions.addView(textBtn("Kaynağı yeniden tara") { t.apiScan = null; runScan() })
     actions.addView(textBtn("Belgeleri tara") { runProbe() })
     actions.addView(textBtn("Dışa aktar") { exportApis(t, items.ifEmpty { all() }) })
+    actions.addView(textBtn("CloudStream iskeleti") { exportCloudStream() })
     actions.addView(textBtn("Canlıyı temizle") {
         synchronized(t.apis) { t.apis.clear() }
         refresh()
