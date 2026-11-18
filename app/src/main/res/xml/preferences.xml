@@ -82,6 +82,12 @@
             app:defaultValue="false"
             app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
+            app:key="api_capture"
+            app:title="API çağrılarını kaydet"
+            app:summary="Araçlar → API uçları için sayfanın fetch/XHR/WebSocket isteklerini listeler"
+            app:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
             app:key="javascript"
             app:title="JavaScript"
             app:defaultValue="true"

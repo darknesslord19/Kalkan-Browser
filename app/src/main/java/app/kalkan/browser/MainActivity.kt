@@ -106,6 +106,11 @@ class MainActivity : AppCompatActivity() {
         var thumb: Bitmap? = null
         var pendingUrl: String? = null
         val res = LinkedHashMap<String, MediaItem>()
+        val apis = LinkedHashMap<String, ApiEp>()
+        @Volatile var apiHost = ""
+        @Volatile var apiScan: List<ApiEp>? = null
+        @Volatile var apiScanFiles = 0
+        @Volatile var apiDocs: List<ApiEp>? = null
         @Volatile var mediaCount = 0
         @Volatile var autoAllowUntil = 0L
         @Volatile var rate = 1f
@@ -764,6 +769,7 @@ class MainActivity : AppCompatActivity() {
             val on = Store.adblock && FilterManager.ready && page != ASSET_HOST && !Store.isAllowlisted(page)
             val o = JSONObject().put("on", on).put("bg", Store.bool("bg_play", true))
                 .put("skip", Store.bool("auto_skip", true) && page != ASSET_HOST)
+                .put("api", Store.bool("api_capture", true) && page != ASSET_HOST)
             if (page != ASSET_HOST) {
                 val hide = Store.rulesFor("hide", page)
                 if (hide.isNotEmpty()) o.put("hide", hide.joinToString("") { "$it{display:none!important}" })
@@ -775,6 +781,11 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun rate(): Float = tab.rate
+
+        @JavascriptInterface
+        fun api(json: String) {
+            try { addApi(tab, JSONObject(json)) } catch (_: Exception) {}
+        }
 
         @JavascriptInterface
         fun picked(mode: String, selector: String, label: String) {
@@ -860,6 +871,7 @@ class MainActivity : AppCompatActivity() {
         override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
             tab.url = url
             tab.pageHost = hostOf(url)
+            resetApisIfHostChanged(tab, url)
             tab.blocked = 0
             tab.favicon = favicon
             tab.title = ""

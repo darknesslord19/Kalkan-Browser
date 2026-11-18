@@ -24,6 +24,97 @@ object Scripts {
     } catch(e) {}
   }
 
+  // API yakalayıcı: fetch / XHR / WebSocket / EventSource / sendBeacon
+  if (cfg.api && K.api) {
+    var rep = function(o){ try { K.api(JSON.stringify(o)); } catch(e) {} };
+    var bodyOf = function(b){
+      try {
+        if (b == null) return '';
+        if (typeof b === 'string') return b.slice(0, 600);
+        if (typeof URLSearchParams !== 'undefined' && b instanceof URLSearchParams) return b.toString().slice(0, 600);
+        if (typeof FormData !== 'undefined' && b instanceof FormData) {
+          var p = [];
+          b.forEach(function(v, k){ p.push(k + '=' + (typeof v === 'string' ? v.slice(0, 60) : '[dosya]')); });
+          return ('FormData: ' + p.join('&')).slice(0, 600);
+        }
+        if (typeof Blob !== 'undefined' && b instanceof Blob) return '[Blob ' + b.size + ' B]';
+        if (b instanceof ArrayBuffer || ArrayBuffer.isView(b)) return '[ikili veri ' + (b.byteLength || 0) + ' B]';
+        return String(b).slice(0, 200);
+      } catch(e) { return ''; }
+    };
+    var abs = function(u){ try { return new URL(String(u), location.href).href; } catch(e) { return String(u); } };
+    try {
+      var origFetch = window.fetch;
+      if (origFetch) {
+        window.fetch = function(input, init){
+          var u = '', m = 'GET', b = '';
+          try {
+            if (typeof input === 'string' || (typeof URL !== 'undefined' && input instanceof URL)) u = String(input);
+            else if (input && input.url) { u = input.url; m = input.method || m; }
+            if (init) { if (init.method) m = init.method; b = bodyOf(init.body); }
+          } catch(e) {}
+          var o = {k: 'fetch', m: String(m).toUpperCase(), u: abs(u), b: b};
+          var pr = origFetch.apply(this, arguments);
+          try {
+            pr.then(function(r){
+              o.s = r.status;
+              try { o.ct = r.headers.get('content-type') || ''; } catch(e) {}
+              rep(o);
+            }, function(){ rep(o); });
+          } catch(e) { rep(o); }
+          return pr;
+        };
+      }
+    } catch(e) {}
+    try {
+      var XO = XMLHttpRequest.prototype.open, XS = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function(m, u){
+        try { this.__kalkanApi = {k: 'xhr', m: String(m || 'GET').toUpperCase(), u: abs(u)}; } catch(e) {}
+        return XO.apply(this, arguments);
+      };
+      XMLHttpRequest.prototype.send = function(b){
+        var x = this, o = x.__kalkanApi;
+        if (o) {
+          o.b = bodyOf(b);
+          try {
+            x.addEventListener('loadend', function(){
+              o.s = x.status;
+              try { o.ct = x.getResponseHeader('content-type') || ''; } catch(e) {}
+              rep(o);
+            });
+          } catch(e) {}
+        }
+        return XS.apply(this, arguments);
+      };
+    } catch(e) {}
+    try {
+      var OWS = window.WebSocket;
+      if (OWS) {
+        var NWS = function(u, pr){
+          rep({k: 'ws', m: 'WS', u: abs(u), s: 101});
+          return pr !== undefined ? new OWS(u, pr) : new OWS(u);
+        };
+        NWS.prototype = OWS.prototype;
+        NWS.CONNECTING = 0; NWS.OPEN = 1; NWS.CLOSING = 2; NWS.CLOSED = 3;
+        window.WebSocket = NWS;
+      }
+    } catch(e) {}
+    try {
+      var OES = window.EventSource;
+      if (OES) {
+        var NES = function(u, c){ rep({k: 'sse', m: 'SSE', u: abs(u)}); return new OES(u, c); };
+        NES.prototype = OES.prototype;
+        window.EventSource = NES;
+      }
+    } catch(e) {}
+    try {
+      if (navigator.sendBeacon) {
+        var OSB = navigator.sendBeacon.bind(navigator);
+        navigator.sendBeacon = function(u, dd){ rep({k: 'beacon', m: 'POST', u: abs(u), b: bodyOf(dd)}); return OSB(u, dd); };
+      }
+    } catch(e) {}
+  }
+
   // Kullanıcının gizlediği öğeler (öğe silici)
   if (cfg.hide) {
     var us = document.createElement('style');

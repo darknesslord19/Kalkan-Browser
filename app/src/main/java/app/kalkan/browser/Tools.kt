@@ -74,7 +74,7 @@ internal fun MainActivity.pageTab(): MainActivity.Tab? {
     return t
 }
 
-private fun MainActivity.sheet(fullHeight: Float = 0.85f): BottomSheetDialog {
+internal fun MainActivity.sheet(fullHeight: Float = 0.85f): BottomSheetDialog {
     val d = BottomSheetDialog(this)
     d.behavior.peekHeight = (resources.displayMetrics.heightPixels * fullHeight).toInt()
     d.behavior.state = BottomSheetBehavior.STATE_EXPANDED
@@ -82,7 +82,7 @@ private fun MainActivity.sheet(fullHeight: Float = 0.85f): BottomSheetDialog {
     return d
 }
 
-private fun MainActivity.sheetHeader(title: String, subtitle: String? = null): LinearLayout {
+internal fun MainActivity.sheetHeader(title: String, subtitle: String? = null): LinearLayout {
     val col = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(22), dp(14), dp(16), dp(8))
@@ -102,7 +102,7 @@ private fun MainActivity.sheetHeader(title: String, subtitle: String? = null): L
     return col
 }
 
-private fun MainActivity.iconButton(icon: Int, desc: String, onClick: () -> Unit) = ImageButton(this).apply {
+internal fun MainActivity.iconButton(icon: Int, desc: String, onClick: () -> Unit) = ImageButton(this).apply {
     setImageResource(icon)
     setBackgroundResource(selectableBg())
     contentDescription = desc
@@ -110,13 +110,13 @@ private fun MainActivity.iconButton(icon: Int, desc: String, onClick: () -> Unit
     setOnClickListener { onClick() }
 }
 
-private fun MainActivity.textBtn(label: String, onClick: () -> Unit) =
+internal fun MainActivity.textBtn(label: String, onClick: () -> Unit) =
     MaterialButton(this, null, androidx.appcompat.R.attr.borderlessButtonStyle).apply {
         text = label
         setOnClickListener { onClick() }
     }
 
-private fun MainActivity.field(hint: String, value: String = "", multi: Boolean = false, mono: Boolean = false) = EditText(this).apply {
+internal fun MainActivity.field(hint: String, value: String = "", multi: Boolean = false, mono: Boolean = false) = EditText(this).apply {
     this.hint = hint
     setText(value)
     textSize = if (mono) 13f else 15f
@@ -131,7 +131,7 @@ private fun MainActivity.field(hint: String, value: String = "", multi: Boolean 
     }
 }
 
-private fun MainActivity.formBox(vararg views: View): ScrollView {
+internal fun MainActivity.formBox(vararg views: View): ScrollView {
     val col = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(22), dp(8), dp(22), 0)
@@ -140,13 +140,13 @@ private fun MainActivity.formBox(vararg views: View): ScrollView {
     return ScrollView(this).apply { addView(col) }
 }
 
-private fun MainActivity.small(text: String, color: Int = mutedColor()) = TextView(this).apply {
+internal fun MainActivity.small(text: String, color: Int = mutedColor()) = TextView(this).apply {
     this.text = text
     textSize = 12.5f
     setTextColor(color)
 }
 
-private fun MainActivity.simpleList(rows: () -> Int, bind: (Int, TextView, TextView, View) -> Unit): RecyclerView {
+internal fun MainActivity.simpleList(rows: () -> Int, bind: (Int, TextView, TextView, View) -> Unit): RecyclerView {
     val rv = RecyclerView(this)
     rv.layoutManager = LinearLayoutManager(this)
     rv.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
@@ -291,6 +291,8 @@ internal fun MainActivity.showTools() {
     val dev = section("Geliştirici")
     tile(dev, R.drawable.ic_terminal, "Konsol",
         badge = { current?.let { c -> synchronized(c.console) { c.console.count { it.level == 'E' } } } ?: 0 }) { showConsole() }
+    tile(dev, R.drawable.ic_api, "API uçları",
+        badge = { current?.let { c -> synchronized(c.apis) { c.apis.size } } ?: 0 }) { showApis() }
     tile(dev, R.drawable.ic_network, "Ağ kaydı") { showNetwork() }
     tile(dev, R.drawable.ic_cookie, "Çerez & depolama") { showStorage() }
     tile(dev, R.drawable.ic_extension, "Betikler",
