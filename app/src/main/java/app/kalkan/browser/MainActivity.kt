@@ -783,6 +783,11 @@ class MainActivity : AppCompatActivity() {
         fun rate(): Float = tab.rate
 
         @JavascriptInterface
+        fun selected(json: String) {
+            ui.post { showSelectorInfo(tab, json) }
+        }
+
+        @JavascriptInterface
         fun api(json: String) {
             try { addApi(tab, JSONObject(json)) } catch (_: Exception) {}
         }

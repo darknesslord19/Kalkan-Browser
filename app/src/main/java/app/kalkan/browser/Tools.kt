@@ -280,6 +280,7 @@ internal fun MainActivity.showTools() {
     val page = section("Sayfa")
     tile(page, R.drawable.ic_hide, "Öğe gizle") { startPicker("zap") }
     tile(page, R.drawable.ic_touch, "Atlamayı öğret") { startPicker("teach") }
+    tile(page, R.drawable.ic_select, "Seçiciyi kopyala") { startPicker("copy") }
     tile(page, R.drawable.ic_reader, "Okuma modu") { toggleReader() }
     tile(page, R.drawable.ic_camera, "Ekran görüntüsü") { screenshot() }
     tile(page, R.drawable.ic_qr_scan, "QR tara") { scanQr() }
@@ -346,7 +347,11 @@ private fun fmtRate(r: Float): String = if (r % 1f == 0f) r.toInt().toString() e
 internal fun MainActivity.startPicker(mode: String) {
     val t = pageTab() ?: return
     t.webView.evaluateJavascript(Scripts.PICKER.replace("__MODE__", mode), null)
-    toast(if (mode == "zap") "Gizlemek istediğin öğeye dokun, sonra ✓" else "Otomatik basılacak düğmeye dokun, sonra ✓")
+    toast(when (mode) {
+        "zap" -> "Gizlemek istediğin öğeye dokun, sonra ✓"
+        "copy" -> "Öğeye dokun, ▲ ile üst öğeye çık, sonra ✓"
+        else -> "Otomatik basılacak düğmeye dokun, sonra ✓"
+    })
 }
 
 internal fun MainActivity.onPicked(tab: MainActivity.Tab, mode: String, selector: String, label: String) {

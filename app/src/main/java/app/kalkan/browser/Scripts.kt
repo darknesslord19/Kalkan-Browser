@@ -300,14 +300,14 @@ object Scripts {
 (function(MODE){
   if (window.__kalkanPick) window.__kalkanPick.stop();
   var K = window.KalkanCosmetic; if (!K) return;
-  var brand = MODE === 'zap' ? '#E5484D' : '#F5A524';
+  var brand = MODE === 'zap' ? '#E5484D' : (MODE === 'copy' ? '#3E8EF7' : '#F5A524');
   var box = document.createElement('div');
   box.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483646;border:2px solid ' + brand + ';background:' + brand + '33;border-radius:4px;display:none;box-sizing:border-box';
   var bar = document.createElement('div');
   bar.style.cssText = 'position:fixed;left:8px;right:8px;bottom:12px;z-index:2147483647;background:#14161C;color:#fff;border-radius:16px;padding:10px 12px;font:14px system-ui,sans-serif;display:flex;align-items:center;gap:8px;box-shadow:0 6px 24px rgba(0,0,0,.45)';
   var label = document.createElement('div');
   label.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-  label.textContent = MODE === 'zap' ? 'Gizlenecek öğeye dokun' : 'Otomatik basılacak düğmeye dokun';
+  label.textContent = MODE === 'zap' ? 'Gizlenecek öğeye dokun' : (MODE === 'copy' ? 'Seçicisini almak istediğin öğeye dokun' : 'Otomatik basılacak düğmeye dokun');
   bar.appendChild(label);
   var mk = function(t){ var b = document.createElement('button'); b.textContent = t; b.style.cssText = 'background:#2A2E38;color:#fff;border:0;border-radius:10px;padding:8px 13px;font:600 15px system-ui,sans-serif'; bar.appendChild(b); return b; };
   var up = mk('▲'), ok = mk('✓'), no = mk('✕');
@@ -374,6 +374,35 @@ object Scripts {
     if (!cur) return;
     var target = cur, s = sel(cur), t = text(cur);
     stop();
+    if (MODE === 'copy') {
+      var info = {sel: s, tag: target.tagName.toLowerCase(), text: (target.innerText || target.value || '').replace(/\s+/g, ' ').trim().slice(0, 300), attrs: {}, similar: [], unique: 0};
+      try { info.unique = document.querySelectorAll(s).length; } catch(x) {}
+      ['href', 'src', 'data-src', 'data-original', 'data-lazy-src', 'srcset', 'title', 'alt', 'id', 'class', 'data-id', 'data-url', 'data-href', 'value', 'name', 'type', 'action'].forEach(function(a){
+        var v = target.getAttribute(a);
+        if (v) info.attrs[a] = String(v).slice(0, 400);
+      });
+      var seen = {};
+      var addSim = function(q){
+        if (!q || seen[q] || q === s) return;
+        seen[q] = 1;
+        try { var n = document.querySelectorAll(q).length; if (n > 0) info.similar.push({s: q, n: n}); } catch(x) {}
+      };
+      var cls = function(e){ return Array.prototype.filter.call(e.classList, function(c){ return /^[A-Za-z_-][\w-]{1,40}$/.test(c) && !/\d{3,}/.test(c); }).slice(0, 2).map(esc); };
+      var part = function(e){ var c = cls(e); return e.tagName.toLowerCase() + (c.length ? '.' + c.join('.') : ''); };
+      var tg = target.tagName.toLowerCase(), tc = cls(target), me = part(target);
+      if (tc.length) { addSim(me); addSim('.' + tc[0]); }
+      var par = target.parentElement;
+      if (par && par !== document.body && par !== document.documentElement) {
+        addSim(part(par) + ' > ' + me);
+        var gp = par.parentElement;
+        if (gp && gp !== document.body && gp !== document.documentElement) addSim(part(gp) + ' ' + me);
+      }
+      var a = target.closest('a');
+      if (a && a !== target) { addSim(part(a) + ' ' + me); }
+      addSim(tg);
+      K.selected(JSON.stringify(info));
+      return;
+    }
     K.picked(MODE, s, t);
     if (MODE === 'zap') {
       var st = document.getElementById('__kalkan_user_hide');
