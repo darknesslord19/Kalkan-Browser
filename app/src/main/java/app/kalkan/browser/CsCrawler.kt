@@ -297,6 +297,15 @@ return JSON.stringify({ok:1});
         if (m?.optBoolean("rawFail") == true) { notes += "Ham HTML okunamadı (engel olabilir); seçiciler görünür sayfadan alındı"; if (st == St.OK) st = St.AUTO }
         if (m?.optBoolean("unreachable") == true) { notes += "Siteye telefondan ulaşılamadı"; st = St.WARN }
         set("net", st, notes.joinToString("\n").ifEmpty { "Engel yok, düz istekler yeterli." })
+        m?.optString("tmdb")?.takeIf { it.isNotEmpty() }?.let { api ->
+            set("net", St.OK, "TMDB biçimli JSON API bulundu ($api) → eklenti API modunda üretilecek")
+            set("home", St.OK, "API modu: katalog JSON'dan (HTML kartı gerekmiyor)")
+            set("poster", St.OK, "Afişler JSON'daki poster_path alanından")
+            set("detail", St.OK, "Detay, oyuncular, benzerler ve bölümler JSON'dan")
+            set("episodes", St.OK, "Sezon/bölümler JSON'dan")
+            set("search", St.OK, "Arama JSON uçtan (search/multi)")
+            if (row("video").state != St.OK) set("video", St.AUTO, "Akış sitenin izleme sayfasından WebView ile yakalanacak (şifreli uç siteye özel)")
+        }
     }
 
     private fun sample(l: JSONObject): String {
@@ -344,6 +353,20 @@ return JSON.stringify({ok:1});
                     val t = r.second.second
                     if (r.first == 403 || r.first == 503 || t.contains("Just a moment", true) || t.contains("cf-browser-verification", true))
                         misc.put("cloudflare", true)
+                } catch (_: Exception) { }
+                // TMDB biçimli JSON API (SPA siteler): sayfa + JS paketlerinde /3/ tabanı aranır ve doğrulanır
+                try {
+                    val home = ApiFinder.fetchText("$origin/", ua, null, 1 shl 19).second.second
+                    val srcs = Regex("<script[^>]+src=[\"']([^\"']+\\.js[^\"']*)[\"']").findAll(home).map { it.groupValues[1] }
+                        .mapNotNull { runCatching { java.net.URL(java.net.URL("$origin/"), it).toString() }.getOrNull() }
+                        .filter { !Regex("(?i)jquery|google|gtag|analytics|cloudflare|bootstrap").containsMatchIn(it) }.distinct().take(8).toList()
+                    val pool = StringBuilder(home)
+                    for (u in srcs) try { pool.append(ApiFinder.fetchText(u, ua, origin, 2 shl 20).second.second) } catch (_: Exception) { }
+                    val bases = Regex("https?://[A-Za-z0-9.\\-]+(?::\\d+)?/3(?=[/\"'`?])").findAll(pool).map { it.value }.distinct().take(4).toList()
+                    for (b in bases) {
+                        val r = ApiFinder.fetchText("$b/movie/popular?language=tr-TR", ua, "$origin/", 1 shl 16, mapOf("Origin" to origin, "Accept" to "application/json"))
+                        if (r.first == 200 && r.second.second.contains("poster_path")) { misc.put("tmdb", b); break }
+                    }
                 } catch (_: Exception) { }
                 if (misc.length() > 0) CsHints.merge(host, JSONObject().put("misc", misc))
             }, {

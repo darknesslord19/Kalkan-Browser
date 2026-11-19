@@ -327,6 +327,8 @@ private fun MainActivity.buildCsZip(
                 tokens["@@STREAM_RE@@"] = CsGen.ks(hints.optJSONObject("player")?.optString("streamRe").orEmpty())
                 tokens["@@AD_RE@@"] = CsGen.ks(hints.optJSONObject("player")?.optString("adRe").orEmpty())
                 tokens["@@XRW@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("xrw").orEmpty().ifEmpty { "XMLHttpRequest" })
+                val tmdbBase = hints.optJSONObject("misc")?.optString("tmdb").orEmpty()
+                tokens["@@TMDB_BASE@@"] = CsGen.ks(tmdbBase)
                 tokens["@@ROUTER@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("router").orEmpty())
                 tokens["@@SEARCH_CALL@@"] = searchCall
                     ?: ("val url = " + tokens["@@SEARCH_URL@@"] + "\n        val response = fetch(url)")
@@ -390,7 +392,7 @@ private fun MainActivity.buildCsZip(
                     "$root/$name/build.gradle.kts" to tpl("module_build.gradle.kts"),
                     "$root/$name/src/main/AndroidManifest.xml" to tpl("AndroidManifest.xml"),
                     "$kt/${name}Plugin.kt" to tpl("Plugin.kt"),
-                    "$kt/${name}Provider.kt" to tpl("Provider.kt"),
+                    "$kt/${name}Provider.kt" to tpl(if (tmdbBase.isNotEmpty()) "ProviderTmdb.kt" else "Provider.kt"),
                     "$kt/${name}Endpoints.kt" to ek.toString(),
                     "$root/$name/ENDPOINTS.md" to md.toString()
                 )
