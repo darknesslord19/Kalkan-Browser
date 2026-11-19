@@ -311,6 +311,7 @@ private fun MainActivity.buildCsZip(
                     }
                 }
                 tokens["@@STREAM_RE@@"] = CsGen.ks(hints.optJSONObject("player")?.optString("streamRe").orEmpty())
+                tokens["@@AD_RE@@"] = CsGen.ks(hints.optJSONObject("player")?.optString("adRe").orEmpty())
                 tokens["@@XRW@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("xrw").orEmpty().ifEmpty { "XMLHttpRequest" })
                 tokens["@@ROUTER@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("router").orEmpty())
                 tokens["@@SEARCH_CALL@@"] = searchCall

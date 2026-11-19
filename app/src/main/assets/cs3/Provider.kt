@@ -88,7 +88,7 @@ class @@NAME@@Provider : MainAPI() {
     private val streamRegex = Regex("(?i)\\.(m3u8|mp4)(\\?|\\$)|/master\\.txt")
     private val streamHint = "@@STREAM_RE@@"
     private val sniffRegex = Regex("(?i)https?://[^\\s\"'<>\\\\]+/(?:m3u8?|hls|playlist|manifest|master|list)/[^\\s\"'<>\\\\]{20,}" + (if (streamHint.isNotBlank()) "|(?:https?://)?" + streamHint + "[^\\s\"'<>\\\\]*" else ""))
-    private val watchRegex = Regex(streamRegex.pattern + (if (streamHint.isNotBlank()) "|" + streamHint else ""))
+    private val watchRegex = Regex("(?i)^(?!.*(?:doubleclick|googlesyndication|/ads?/|[._-]ads?[._/-]|preroll|promo|trailer|fragman|teaser|twimg|fbcdn)).*(?:\\.(m3u8|mp4)(\\?|\\$)|/master\\.txt" + (if (streamHint.isNotBlank()) "|" + streamHint else "") + ")")
     private val notMedia = Regex("(?i)\\.(js|css|png|jpe?g|webp|gif|svg|vtt|srt|json|woff2?)(\\?|\\$)")
 
     /** Uzantısız HLS (JW Player vb.): adresi indirip içeriği (#EXTM3U) doğrular, öyleyse oynatma listesi olarak yayar. */
@@ -97,6 +97,7 @@ class @@NAME@@Provider : MainAPI() {
         val hdr = mapOf("Referer" to referer, "Origin" to origin)
         val body = runCatching { app.get(u, referer = referer, headers = hdr).text }.getOrNull() ?: return false
         if (!body.trimStart().startsWith("#EXTM3U")) return false
+        if (!worthIt(u, referer, true)) return false
         M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
         return true
     }
@@ -351,25 +352,57 @@ class @@NAME@@Provider : MainAPI() {
 
     // HLS: AES-128 (açık anahtarlı) şifrelemeyi oynatıcı kendisi çözer; burada yalnızca
     // doğru Referer/Origin başlıklarını veriyoruz. DRM (Widevine/FairPlay) desteklenmez.
+    private val adHint = "@@AD_RE@@"
+    private val adRegex = Regex("(?i)(doubleclick|googlesyndication|adservice|adnxs|/ads?/|[._-]ads?[._/-]|preroll|promo|popunder|banner|video\\.twimg|fbcdn|cdninstagram|tiktok|fragman|trailer|teaser)" + (if (adHint.isNotBlank()) "|$adHint" else ""))
+
+    /** Reklam / kısa klip / fragman elemesi: HLS toplam süresine ya da mp4 boyutuna bakar; ölçülemezse geçirir. */
+    private suspend fun worthIt(u: String, referer: String, hls: Boolean): Boolean {
+        if (adRegex.containsMatchIn(u)) return false
+        val hdr = mapOf("Referer" to referer)
+        return try {
+            if (hls) {
+                var body = app.get(u, referer = referer, headers = hdr).text
+                if (body.contains("#EXT-X-STREAM-INF")) {
+                    val v = body.lines().firstOrNull { it.isNotBlank() && !it.startsWith("#") } ?: return true
+                    val vu = if (v.startsWith("http")) v else java.net.URI(u).resolve(v).toString()
+                    body = app.get(vu, referer = referer, headers = hdr).text
+                }
+                if (!body.contains("#EXT-X-ENDLIST")) return true
+                val secs = Regex("#EXTINF:([0-9.]+)").findAll(body).sumOf { it.groupValues[1].toDoubleOrNull() ?: 0.0 }
+                secs <= 0.0 || secs >= 600.0
+            } else {
+                val r = app.get(u, referer = referer, headers = hdr + mapOf("Range" to "bytes=0-1"))
+                val total = r.headers["Content-Range"]?.substringAfter('/')?.toLongOrNull()
+                total == null || total >= 40_000_000L
+            }
+        } catch (_: Exception) { true }
+    }
+
     private suspend fun emitStreams(src: String, referer: String, callback: (ExtractorLink) -> Unit): Boolean {
         var ok = false
         val origin = runCatching { java.net.URI(referer).let { "${it.scheme}://${it.host}" } }.getOrDefault(mainUrl)
         val hdr = mapOf("Referer" to referer, "Origin" to origin)
         Regex("https?:[^\"'\\s<>\\\\]+\\.m3u8[^\"'\\s<>\\\\]*").findAll(src).map { it.value }.distinct().forEach { u ->
-            M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
-            ok = true
+            if (worthIt(u, referer, true)) {
+                M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
+                ok = true
+            }
         }
         Regex("https?:[^\"'\\s<>\\\\]+\\.mp4[^\"'\\s<>\\\\]*").findAll(src).map { it.value }.distinct().forEach { u ->
-            callback(newExtractorLink(name, name, u, ExtractorLinkType.VIDEO) {
-                this.referer = referer
-                this.headers = hdr
-                this.quality = Qualities.Unknown.value
-            })
-            ok = true
+            if (worthIt(u, referer, false)) {
+                callback(newExtractorLink(name, name, u, ExtractorLinkType.VIDEO) {
+                    this.referer = referer
+                    this.headers = hdr
+                    this.quality = Qualities.Unknown.value
+                })
+                ok = true
+            }
         }
         Regex("https?:[^\"'\\s<>\\\\]+/master\\.txt[^\"'\\s<>\\\\]*").findAll(src).map { it.value }.distinct().forEach { u ->
-            M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
-            ok = true
+            if (worthIt(u, referer, true)) {
+                M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
+                ok = true
+            }
         }
         return ok
     }

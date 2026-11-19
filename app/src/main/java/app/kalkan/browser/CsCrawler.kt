@@ -275,8 +275,10 @@ return JSON.stringify({ok:1});
         } else if ("detail" in scanned) set("player", St.WARN, "Oynatıcı sayfada görünmedi (tıklayınca yükleniyor olabilir). Eklenti çalışma anında iframe, m3u8, packed JS ve CryptoJS zincirini dener.")
         else set("player", St.WARN, "Oynatıcı taranamadı.")
         val stream = p?.optString("stream").orEmpty()
-        if (stream.isNotEmpty()) set("video", St.OK, "Yakalandı: $stream. Çözülemeyen oynatıcılarda eklenti WebView ile aynısını yapacak.")
-        else if ("video" in scanned) set("video", St.AUTO, "Otomatik yakalanamadı (oynatıcı tıklama ya da başka alan adı bekliyor olabilir). Eklenti çalışma anında WebView ile yakalamayı deneyecek.")
+        val shortN = p?.optInt("shortCount") ?: 0
+        if (stream.isNotEmpty()) set("video", St.OK, "Film akışı: $stream" + if (shortN > 0) "\n$shortN kısa klip/reklam elendi." else "")
+        else if (p?.optBoolean("shortOnly") == true) set("video", St.WARN, "Yalnızca kısa klip/reklam yakalandı ($shortN adet, en uzunu ${p.optInt("shortMax")} sn). Film akışı oynat tuşu bekliyor olabilir. Eklenti bu klipleri eler, uzun akışı çalışma anında WebView ile arar.")
+        else if ("video" in scanned) set("video", St.AUTO, "Akış isteği yakalanamadı (oynatıcı tıklama ya da başka alan adı bekliyor olabilir). Eklenti çalışma anında WebView ile deneyecek.")
         else set("video", St.WAIT, "")
         val s = h.optJSONObject("search")
         if (s != null && s.optString("pattern").isNotEmpty()) {
@@ -407,72 +409,96 @@ return JSON.stringify({ok:1});
             }
         }
 
-        // ---- video akışı: oynatıcıyı (iframe ya da film sayfasının kendisi) WebView'da açıp gerçek akış isteklerini yakalar
+        // ---- video akışı (derin tarama): oynatıcıyı WebView'da çalıştırıp TÜM akış isteklerini toplar,
+        // ---- her birinin süresini/boyutunu ölçer; reklam ve kısa klipleri eler, gerçek filmi seçer
         fun videoStage() {
             val pl = CsHints.load(host).optJSONObject("player")
             val iframeUrl = pl?.optJSONArray("iframes")?.optString(0).orEmpty()
             val link = CsHints.load(host).optJSONObject("list")?.optJSONArray("links")?.optString(0).orEmpty()
             val frame = if (iframeUrl.startsWith("http")) iframeUrl else link
             if (frame.isEmpty() || !frame.startsWith("http")) { scanned.add("video"); refresh(); searchStage(); return }
-            begin("video", "Oynatıcı açılıyor, video isteği bekleniyor…")
-            val hit = java.util.concurrent.atomic.AtomicReference<String?>(null)
-            val cands = java.util.concurrent.ConcurrentLinkedQueue<String>()
+            begin("video", "Oynatıcı açılıyor, akış istekleri toplanıyor…")
+            val media = java.util.concurrent.ConcurrentLinkedQueue<String>()
             val re = Regex("(?i)\\.(m3u8|mp4)(\\?|$)|/master\\.txt|/playlist\\.m3u8")
             val pathRe = Regex("(?i)/(m3u8?|hls|list|playlist|stream|manifest|master|process)/")
             val originHost = Uri.parse(origin).host.orEmpty().removePrefix("www.")
             wv.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: android.webkit.WebResourceRequest): android.webkit.WebResourceResponse? {
                     val u = request.url.toString()
-                    if (hit.get() == null && re.containsMatchIn(u)) hit.set(u)
-                    else {
-                        val h = request.url.host.orEmpty()
-                        val path = request.url.path.orEmpty()
-                        if (!h.removePrefix("www.").endsWith(originHost) && path.length > 40 && pathRe.containsMatchIn(path) && cands.size < 12) cands.add(u)
-                    }
+                    val h = request.url.host.orEmpty()
+                    val path = request.url.path.orEmpty()
+                    val ext = re.containsMatchIn(u)
+                    val blob = !h.removePrefix("www.").endsWith(originHost) && path.length > 40 && pathRe.containsMatchIn(path)
+                    if ((ext || blob) && media.size < 24 && !media.contains(u)) media.add(u)
                     return null
                 }
                 override fun onPageFinished(view: WebView, u: String?) {
-                    view.evaluateJavascript("(function(){try{var e=document.querySelector('.jw-icon-display,.vjs-big-play-button,.plyr__control--overlaid,button[class*=play],[class*=play-btn],video');if(e&&e.click)e.click();var v=document.querySelector('video');if(v&&v.play)v.play();}catch(x){}})()", null)
+                    view.evaluateJavascript("(function(){try{var e=document.querySelector('.jw-icon-display,.vjs-big-play-button,.plyr__control--overlaid,button[class*=play],[class*=play-btn],video');if(e&&e.click)e.click();var v=document.querySelector('video');if(v){v.muted=true;if(v.play)v.play();}}catch(x){}})()", null)
                 }
             }
             var waited = 0
+            var lastCount = 0
+            var lastChange = 0
             fun conclude() {
-                val u = hit.get()
-                if (u != null) {
-                    val kind = if (u.contains(".mp4", true)) "mp4" else "m3u8"
-                    CsHints.set(host, "player", "stream", Uri.parse(u).host + " · " + kind)
-                    scanned.add("video"); refresh(); searchStage(); return
-                }
-                val list = cands.toList()
+                val list = media.toList()
                 if (list.isEmpty()) { scanned.add("video"); refresh(); searchStage(); return }
-                row("video").note = "Uzantısız akış adayları doğrulanıyor…"; onUpdate()
+                row("video").note = "${list.size} akış isteği bulundu, süreleri ölçülüyor…"; onUpdate()
                 bg({
-                    var good: String? = null
-                    val segs = LinkedHashMap<String, LinkedHashSet<String>>()
-                    for (c in list.take(6)) {
+                    class M(val url: String, val secs: Double, val mb: Double, val kind: String)
+                    fun mediaOf(u: String): M? {
                         try {
-                            val r = ApiFinder.fetchText(c, ua, "$origin/", 1 shl 16)
-                            if (r.first == 200 && r.second.second.trimStart().startsWith("#EXTM3U")) {
-                                good = good ?: c
-                                val uri = Uri.parse(c)
-                                val seg = uri.pathSegments.firstOrNull()
-                                if (seg != null) segs.getOrPut(uri.host.orEmpty()) { LinkedHashSet() }.add(seg)
+                            val isMp4 = Regex("(?i)\\.mp4(\\?|$)").containsMatchIn(u)
+                            if (isMp4) {
+                                val c = java.net.URL(u).openConnection() as java.net.HttpURLConnection
+                                c.connectTimeout = 8000; c.readTimeout = 8000
+                                c.setRequestProperty("Range", "bytes=0-1"); c.setRequestProperty("User-Agent", ua); c.setRequestProperty("Referer", "$origin/")
+                                val total = c.getHeaderField("Content-Range")?.substringAfter('/')?.toLongOrNull() ?: c.contentLengthLong
+                                c.disconnect()
+                                return M(u, 0.0, if (total > 0) total / 1048576.0 else 0.0, "mp4")
                             }
-                        } catch (_: Exception) { }
+                            val r = ApiFinder.fetchText(u, ua, "$origin/", 1 shl 17)
+                            var body = r.second.second
+                            if (r.first != 200 || !body.trimStart().startsWith("#EXTM3U")) return null
+                            if (body.contains("#EXT-X-STREAM-INF")) {
+                                val v = body.lines().firstOrNull { it.isNotBlank() && !it.startsWith("#") } ?: return M(u, 99999.0, 0.0, "m3u8")
+                                val vu = if (v.startsWith("http")) v else java.net.URI(u).resolve(v).toString()
+                                body = ApiFinder.fetchText(vu, ua, "$origin/", 1 shl 17).second.second
+                            }
+                            if (!body.contains("#EXT-X-ENDLIST")) return M(u, 99999.0, 0.0, "m3u8")
+                            val secs = Regex("#EXTINF:([0-9.]+)").findAll(body).sumOf { it.groupValues[1].toDoubleOrNull() ?: 0.0 }
+                            return M(u, secs, 0.0, "m3u8")
+                        } catch (_: Exception) { return null }
                     }
-                    // oynatma listesi doğrulandıysa, listeyi veren sunucudaki tüm aday yolları akış kalıbı yap
-                    if (good != null) {
-                        val gh = Uri.parse(good).host.orEmpty()
-                        val all = LinkedHashSet<String>()
-                        for (c in list) { val uu = Uri.parse(c); if (uu.host == gh) uu.pathSegments.firstOrNull()?.let { all.add(Regex.escape(it)) } }
-                        val re2 = gh.replace(".", "\\.") + "/(?:" + all.joinToString("|") + ")/"
-                        CsHints.set(host, "player", "streamRe", re2)
-                        CsHints.set(host, "player", "stream", gh + " · m3u8 (uzantısız)")
+                    val ms = list.take(12).mapNotNull { mediaOf(it) }
+                    val long = ms.filter { it.secs >= 600.0 || it.mb >= 40.0 }
+                    val best = long.maxByOrNull { if (it.secs > 0) it.secs else it.mb * 10 }
+                    val shorts = ms.filter { it !in long }
+                    val bestHost = best?.let { Uri.parse(it.url).host.orEmpty() }
+                    val bad = shorts.map { Uri.parse(it.url).host.orEmpty() }.filter { it.isNotEmpty() && it != bestHost }.distinct()
+                    if (bad.isNotEmpty()) CsHints.set(host, "player", "adRe", bad.joinToString("|") { it.replace(".", "\\.") })
+                    CsHints.set(host, "player", "shortCount", shorts.size)
+                    if (best != null) {
+                        val dk = if (best.secs in 1.0..90000.0) " · ${(best.secs / 60).toInt()} dk" else if (best.mb > 0) " · ${best.mb.toInt()} MB" else ""
+                        CsHints.set(host, "player", "stream", Uri.parse(best.url).host + " · " + best.kind + dk)
+                        CsHints.set(host, "player", "shortOnly", false)
+                        if (!Regex("(?i)\\.(m3u8|mp4)(\\?|$)|/master\\.txt").containsMatchIn(best.url)) {
+                            val gh = Uri.parse(best.url).host.orEmpty()
+                            val segs = LinkedHashSet<String>()
+                            for (c in list) { val uu = Uri.parse(c); if (uu.host == gh) uu.pathSegments.firstOrNull()?.let { segs.add(Regex.escape(it)) } }
+                            CsHints.set(host, "player", "streamRe", gh.replace(".", "\\.") + "/(?:" + segs.joinToString("|") + ")/")
+                        }
+                    } else if (shorts.isNotEmpty()) {
+                        val mx = shorts.maxOf { it.secs }
+                        CsHints.set(host, "player", "shortOnly", true)
+                        CsHints.set(host, "player", "stream", "")
+                        CsHints.set(host, "player", "shortMax", mx.toInt())
                     }
                 }, { scanned.add("video"); refresh(); searchStage() })
             }
             fun wait() {
-                if (hit.get() != null || waited >= 15000) conclude()
+                if (media.size != lastCount) { lastCount = media.size; lastChange = waited }
+                val settled = waited >= 10000 && media.isNotEmpty() && waited - lastChange >= 5000
+                if (waited >= 25000 || settled) conclude()
                 else { waited += 500; H.postDelayed({ wait() }, 500) }
             }
             wv.loadUrl(frame, mapOf("Referer" to "$origin/"))
