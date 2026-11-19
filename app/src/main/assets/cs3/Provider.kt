@@ -35,9 +35,17 @@ class @@NAME@@Provider : MainAPI() {
     private val posterAttr = "@@POSTER_ATTR@@"
     private val episodeSelector = "@@EPISODE_SEL@@"
 
+    /** Taramada doğrulanan sayfalama kalıbı ({url} + {page}); boşsa /page/N/ denenir. */
+    private val pagePat = "@@PAGE_PAT@@"
+
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = when {
             request.data.contains("{page}") -> request.data.replace("{page}", page.toString())
+            page > 1 && pagePat.isNotBlank() -> {
+                val b = request.data.trimEnd('/')
+                val pt = if (b.contains('?') && pagePat.startsWith("{url}?")) pagePat.replaceFirst("{url}?", "{url}&") else pagePat
+                pt.replace("{url}", b).replace("{page}", page.toString())
+            }
             page > 1 -> request.data.trimEnd('/') + "/page/$page/"
             else -> request.data
         }

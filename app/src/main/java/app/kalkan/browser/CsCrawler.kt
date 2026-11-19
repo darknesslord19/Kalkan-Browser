@@ -232,6 +232,27 @@ return JSON.stringify({ok:1});
         }
     }
 
+    /** Sayfayı çekip (başlık X-Requested-With yok) kart seçicisiyle kart sayar; ilk 3 kartın adresini de verir. */
+    private fun pageCards(wv: WebView, url: String, card: String, cb: (Int, Int, List<String>) -> Unit) {
+        val id = "c" + System.nanoTime()
+        val js = "(function(u,sel,id){window.__pc=window.__pc||{};try{fetch(u,{credentials:'include'}).then(function(r){return r.text().then(function(t){" +
+            "var d=new DOMParser().parseFromString(t,'text/html');var n=0,h=[];try{var q=d.querySelectorAll(sel);n=q.length;for(var i=0;i<q.length&&h.length<3;i++){var a=q[i].tagName==='A'?q[i]:q[i].querySelector('a[href]');if(a)h.push(a.getAttribute('href'));}}catch(e){}" +
+            "window.__pc[id]={c:r.status,n:n,h:h};});}).catch(function(e){window.__pc[id]={c:0,n:0,h:[]};});}catch(e){window.__pc[id]={c:0,n:0,h:[]};}})(" +
+            JSONObject.quote(url) + "," + JSONObject.quote(card) + "," + JSONObject.quote(id) + ")"
+        wv.evaluateJavascript(js, null)
+        var tries = 0
+        fun poll() {
+            evalJson(wv, "(function(){var r=(window.__pc||{})['" + id + "'];return r?JSON.stringify(r):null;})()") { o ->
+                if (o != null) {
+                    val hs = ArrayList<String>(); o.optJSONArray("h")?.let { a -> for (i in 0 until a.length()) hs += a.optString(i) }
+                    cb(o.optInt("c"), o.optInt("n"), hs)
+                } else if (tries++ < 40) H.postDelayed({ poll() }, 300)
+                else cb(0, 0, emptyList())
+            }
+        }
+        H.postDelayed({ poll() }, 300)
+    }
+
     private fun hasSane(l: JSONObject?): Boolean = l != null && l.optInt("matches") in 3..400
 
     /** Satırları ipuçlarından hesaplar. */
@@ -287,6 +308,17 @@ return JSON.stringify({ok:1});
         } else if (s != null && s.optString("param").isNotEmpty()) {
             set("search", St.OK, "Form: ${s.optString("method").uppercase()} ${s.optString("path")} ?${s.optString("param")}=")
         } else set("search", St.AUTO, "Arama adresi kesinleşmedi. Eklenti çalışma anında 15 yaygın adresi sırayla deneyecek (JSON ve AJAX dahil).")
+        run {
+            val cats = h.optJSONObject("cats")?.optJSONArray("list")
+            val pp = h.optJSONObject("misc")?.optString("pagePat").orEmpty()
+            val r = rows.firstOrNull { it.key == "cats" }
+            if (r != null) {
+                if (cats != null && cats.length() > 0) {
+                    r.state = St.OK
+                    r.note = "${cats.length()} doğrulanmış kategori (her birinde kart var)" + (if (pp.isNotEmpty()) " · sayfalama: $pp" else " · sayfalama bulunamadı (yalnız 1. sayfa)")
+                } else if ("cats" in scanned) { r.state = St.AUTO; r.note = "Doğrulanmış kategori bulunamadı; yalnız ana sayfa listesi kullanılacak." + (if (pp.isNotEmpty()) " · sayfalama: $pp" else "") }
+            }
+        }
         val m = h.optJSONObject("misc")
         val notes = ArrayList<String>()
         var st = St.OK
@@ -501,12 +533,70 @@ return JSON.stringify({ok:1});
             }
         }
 
+        // ---- 1b) kategoriler (menüden aday → her birinde gerçekten kart var mı) + sayfalama biçimi
+        fun catStage(next: () -> Unit) {
+            if (rows.none { it.key == "cats" }) { next(); return }
+            begin("cats", "Menüdeki kategoriler deneniyor…")
+            val h0 = CsHints.load(host)
+            val l0 = h0.optJSONObject("list")
+            val card = if (l0 == null || l0.optBoolean("bad") || l0.optString("card").isEmpty()) "a:has(img)" else l0.optString("card")
+            val js = "(function(){var o=location.origin,seen={},out=[];var junk=/(\\/wp-|\\/feed|\\/tag\\/|\\/author\\/|iletisim|contact|hakkimizda|about|dmca|gizlilik|privacy|login|giris|kayit|register|uye|profil|hesap|cart|\\.(css|js|png|jpe?g|webp|gif|svg|ico|xml)$|sitemap|rss|javascript:|mailto:|#)/i;" +
+                "var q=document.querySelectorAll('nav a[href],header a[href],[class*=menu] a[href],[class*=nav] a[href],[id*=menu] a[href],[class*=dropdown] a[href]');" +
+                "for(var i=0;i<q.length&&out.length<25;i++){var a=q[i];var u;try{u=new URL(a.getAttribute('href'),location.href);}catch(e){continue;}" +
+                "if(u.origin!==o||junk.test(u.href))continue;var p=u.pathname;if(p==='/'||p==='')continue;if(p.split('/').filter(Boolean).length>3)continue;" +
+                "var t=(a.textContent||'').replace(/\\s+/g,' ').trim();if(t.length<2||t.length>30)continue;var k=u.origin+p;if(seen[k])continue;seen[k]=1;out.push({t:t,u:u.href});}" +
+                "return JSON.stringify({c:out});})()"
+            evalJson(wv, js) { o ->
+                val cands = ArrayList<Pair<String, String>>()
+                o?.optJSONArray("c")?.let { a -> for (i in 0 until a.length()) { val x = a.optJSONObject(i) ?: continue; cands += x.optString("t") to x.optString("u") } }
+                val good = JSONArray()
+                var firstGood: String? = null
+                var firstHrefs: List<String> = emptyList()
+                fun paginate() {
+                    val base = firstGood ?: "$origin/"
+                    val pats = listOf("{url}/page/{page}/", "{url}?page={page}", "{url}/sayfa/{page}", "{url}?sayfa={page}", "{url}?p={page}", "{url}/{page}/")
+                    fun mk(pat: String, n: Int): String {
+                        val b = base.trimEnd('/')
+                        var pt = pat
+                        if (b.contains('?') && pt.startsWith("{url}?")) pt = pt.replaceFirst("{url}?", "{url}&")
+                        return pt.replace("{url}", b).replace("{page}", n.toString())
+                    }
+                    fun tryPat(i: Int) {
+                        if (i >= pats.size) { scanned.add("cats"); refresh(); next(); return }
+                        pageCards(wv, mk(pats[i], 2), card) { code, n, hs ->
+                            if (code in 200..299 && n >= 4 && hs.isNotEmpty() && hs != firstHrefs) {
+                                CsHints.set(host, "misc", "pagePat", pats[i]); scanned.add("cats"); refresh(); next()
+                            } else tryPat(i + 1)
+                        }
+                    }
+                    if (firstGood == null) {
+                        // kategori yok: ana sayfanın kartlarını temel al
+                        pageCards(wv, base, card) { _, _, hs -> firstHrefs = hs; tryPat(0) }
+                    } else tryPat(0)
+                }
+                fun probe(i: Int) {
+                    if (i >= cands.size || good.length() >= 12) {
+                        CsHints.set(host, "cats", "list", good); paginate(); return
+                    }
+                    val (t, u) = cands[i]
+                    pageCards(wv, u, card) { code, n, hs ->
+                        if (code in 200..299 && n >= 4) {
+                            good.put(JSONObject().put("n", t).put("u", u).put("c", n))
+                            if (firstGood == null) { firstGood = u; firstHrefs = hs }
+                        }
+                        probe(i + 1)
+                    }
+                }
+                probe(0)
+            }
+        }
+
         // ---- 1) ana sayfa
         CsHints.set(host, "misc", "jsRendered", false)
         CsHints.set(host, "misc", "rawFail", false)
         begin("home", "Ana sayfa açılıyor…")
         load(wv, "$origin/", 2200, 25000) {
-            analyzeBoth(wv, host, "$origin/", true) { scanned.add("home"); refresh(); detailStage() }
+            analyzeBoth(wv, host, "$origin/", true) { scanned.add("home"); refresh(); catStage { detailStage() } }
         }
     }
 }
@@ -518,6 +608,7 @@ internal fun MainActivity.csScanPanel(t: MainActivity.Tab, continueLabel: String
     val ua = t.webView.settings.userAgentString ?: "Mozilla/5.0"
     val rows = listOf(
         AuditRow("home", "Ana sayfa kartları"),
+        AuditRow("cats", "Kategoriler ve sayfalama"),
         AuditRow("poster", "Afişler"),
         AuditRow("detail", "Film / dizi detayı"),
         AuditRow("episodes", "Bölüm listesi"),

@@ -284,6 +284,22 @@ private fun MainActivity.buildCsZip(
                     pages.append("\n        \"\$mainUrl").append(CsGen.ks(o.optString("path")).trimEnd('/')).append("/\" to \"")
                         .append(CsGen.ks(o.optString("name"))).append("\",")
                 }
+                // Taramada DOĞRULANMIŞ kategoriler (her birinde kart bulundu) menü tahmininin yerini alır
+                val vcats = hints.optJSONObject("cats")?.optJSONArray("list")
+                if (vcats != null && vcats.length() >= 2) {
+                    pages.setLength(0)
+                    pages.append("        \"\$mainUrl/\" to \"Ana sayfa\",")
+                    val seenV = HashSet<String>()
+                    for (i in 0 until minOf(vcats.length(), 12)) {
+                        val o = vcats.optJSONObject(i) ?: continue
+                        val u = o.optString("u")
+                        val path = if (u.startsWith(origin)) u.substring(origin.length) else u
+                        if (path.isBlank() || !seenV.add(path)) continue
+                        val addr = if (path.startsWith("http")) CsGen.ks(path) else "\$mainUrl" + CsGen.ks(path)
+                        pages.append("\n        \"").append(addr).append("\" to \"").append(CsGen.ks(o.optString("n"))).append("\",")
+                    }
+                }
+                tokens["@@PAGE_PAT@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("pagePat").orEmpty())
                 // Bilgi bankasındaki gerçek kategori listesi (varsa) menüden gelenlerin önüne geçer
                 val kbPages = try { CsBrain.mainPages(this, host) } catch (_: Exception) { emptyList() }
                 if (kbPages.size >= 3) {
