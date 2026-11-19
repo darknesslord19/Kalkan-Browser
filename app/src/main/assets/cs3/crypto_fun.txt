@@ -1,0 +1,35 @@
+
+    // ---- CryptoJS uyumlu AES-CBC çözücü (OpenSSL EVP_BytesToKey/MD5). Anahtar adayları sayfa JS'inden çıkarıldı.
+    private val cryptoPass = listOf(@@CRYPTO_PASS@@)
+
+    private fun cryptoJsDecrypt(blob: String, pass: String): String? = runCatching {
+        val salt: ByteArray
+        val ivGiven: ByteArray?
+        val ct: ByteArray
+        if (blob.trimStart().startsWith("{")) {
+            val j = org.json.JSONObject(blob)
+            ct = android.util.Base64.decode(j.getString("ct"), android.util.Base64.DEFAULT)
+            salt = j.getString("s").chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            ivGiven = j.optString("iv").takeIf { it.isNotBlank() }?.chunked(2)?.map { it.toInt(16).toByte() }?.toByteArray()
+        } else {
+            val rawBytes = android.util.Base64.decode(blob, android.util.Base64.DEFAULT)
+            require(String(rawBytes.copyOfRange(0, 8)) == "Salted__")
+            salt = rawBytes.copyOfRange(8, 16)
+            ct = rawBytes.copyOfRange(16, rawBytes.size)
+            ivGiven = null
+        }
+        val md = java.security.MessageDigest.getInstance("MD5")
+        var block = ByteArray(0)
+        var all = ByteArray(0)
+        while (all.size < 48) {
+            block = md.digest(block + pass.toByteArray() + salt)
+            all += block
+        }
+        val cipher = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding")
+        cipher.init(
+            javax.crypto.Cipher.DECRYPT_MODE,
+            javax.crypto.spec.SecretKeySpec(all.copyOfRange(0, 32), "AES"),
+            javax.crypto.spec.IvParameterSpec(ivGiven ?: all.copyOfRange(32, 48))
+        )
+        String(cipher.doFinal(ct)).trim('"').replace("\\/", "/")
+    }.getOrNull()

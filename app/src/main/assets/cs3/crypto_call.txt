@@ -1,0 +1,9 @@
+
+        // CryptoJS AES blokları ({"ct":..,"iv":..,"s":..} veya "Salted__" base64): sayfanın kendi JS'inin yaptığı çözme
+        if (cryptoPass.isNotEmpty()) {
+            val extra = StringBuilder()
+            Regex("\\{[^{}]*\"ct\"\\s*:\\s*\"[^\"]+\"[^{}]*\\}").findAll(text.replace("\\\"", "\"")).forEach { m ->
+                cryptoPass.firstNotNullOfOrNull { p -> cryptoJsDecrypt(m.value, p) }?.let { extra.append('\n').append(it) }
+            }
+            text += extra
+        }

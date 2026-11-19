@@ -20,6 +20,11 @@ Reklam engelleyicili, gizlilik odaklı Android tarayıcısı — içinde **WireG
 - **Sistem geneli koruma (DNS):** tüm uygulamalarda reklam/izleyici alan adlarını engeller, sunucu gerekmez
 - **WireGuard VPN istemcisi:** Proton VPN, Mullvad vb. bir sağlayıcının `.conf` dosyasını içe aktar, tek tuşla bağlan
 
+**Geliştirici / CloudStream**
+- Canlı API ucu yakalama, belge tarama (OpenAPI, WordPress, robots), curl / JSON / Postman dışa aktarma
+- **CS analizi:** ana sayfa, detay ve bölüm sayfalarında kart / başlık / afiş / bölüm seçicilerini otomatik bulur (bilgiler site başına birikir)
+- **CloudStream iskeleti:** seçicileri dolu Kotlin eklentisi üretir; video çözme (iç içe iframe, packed JS, CryptoJS AES, base64, HLS başlıkları) ve HLS şifreleme raporu dahil
+
 **Tarayıcı**
 - Sınırsız sekme, gizli sekme (ayrı çerez profili), kapatılan sekmeyi geri açma, oturumu geri yükleme
 - Akıllı adres çubuğu (geçmiş + yer imi önerileri), 6 arama motoru

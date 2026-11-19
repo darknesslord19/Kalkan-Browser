@@ -5,6 +5,7 @@ import android.text.InputType
 import android.widget.LinearLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.ByteArrayOutputStream
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -129,6 +130,34 @@ private object CsGen {
 /** CloudStream eklenti iskeleti üretip ZIP olarak kaydeder. */
 internal fun MainActivity.exportCloudStream() {
     val t = pageTab() ?: return
+    // Önce bu sayfayı analiz et (seçiciler site başına birikir), sonra formu aç
+    analyzeCsPage(t) { hints -> exportCloudStreamForm(t, hints) }
+}
+
+/** Geçerli sayfayı analiz edip sonucu site için kaydeder. */
+internal fun MainActivity.analyzeCsPage(tab: MainActivity.Tab, done: (JSONObject?) -> Unit) {
+    tab.webView.evaluateJavascript(CsAnalyzer.JS) { r ->
+        val fresh = try {
+            if (r.isNullOrBlank() || r == "null") null else JSONObject(r).takeIf { !it.has("error") }
+        } catch (_: Exception) { null }
+        done(if (fresh == null) CsHints.load(tab.pageHost).takeIf { it.length() > 0 } else CsHints.merge(tab.pageHost, fresh))
+    }
+}
+
+/** Araçlar menüsü: yalnızca sayfayı analiz et, durumu göster. */
+internal fun MainActivity.analyzeCsPageAndShow() {
+    val t = pageTab() ?: return
+    analyzeCsPage(t) { h ->
+        MaterialAlertDialogBuilder(this)
+            .setTitle("CloudStream analizi · ${t.pageHost}")
+            .setMessage(CsHints.summary(h) + "\n\nAna sayfada, dizi detayında ve bölüm sayfasında birer kez analiz et; bilgiler birikir. Sonra \u201CCloudStream iskeleti\u201D ile dışa aktar.")
+            .setPositiveButton("Tamam", null)
+            .setNeutralButton("Sıfırla") { _, _ -> CsHints.clear(t.pageHost); toast("Analiz verisi silindi") }
+            .show()
+    }
+}
+
+private fun MainActivity.exportCloudStreamForm(t: MainActivity.Tab, hints: JSONObject?) {
     val origin = Uri.parse(t.url).let { "${it.scheme}://${it.authority}" }
     val host = t.pageHost
     val eps = collectApis(t)
@@ -139,8 +168,9 @@ internal fun MainActivity.exportCloudStream() {
     val langF = field("Dil kodu (tr, en…)", Store.str("cs_lang", "tr"))
     val descF = field("Açıklama", "", multi = false)
     val info = small(
-        "${eps.size} uç bulundu (${eps.count { it.apiLike }} API benzeri). Daha fazlası için önce Araçlar → API uçları ile sayfada gezin ve \u201CBelgeleri tara\u201D de.\n\n" +
-            "Arama, detay ve video çözme mantığı siteye özel olduğundan TODO olarak bırakılır."
+        "${eps.size} uç bulundu (${eps.count { it.apiLike }} API benzeri).\n\n" +
+            "Sayfa analizi:\n" + CsHints.summary(hints) + "\n\n" +
+            "✗ olanlar için o sayfaya gidip Araçlar → \u201CCS analizi\u201D çalıştır, sonra tekrar dışa aktar."
     )
     MaterialAlertDialogBuilder(this)
         .setTitle("CloudStream iskeleti")
@@ -179,6 +209,7 @@ private fun MainActivity.buildCsZip(
 ) {
     ensureStorage {
         toast("Eklenti iskeleti hazırlanıyor…")
+        val ua = t.webView.settings.userAgentString ?: "Mozilla/5.0"
         Thread {
             val msg = try {
                 val date = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr")).format(Date())
@@ -186,7 +217,7 @@ private fun MainActivity.buildCsZip(
                 val (searchUrl, searchNote) = CsGen.searchExpr(eps, origin, host)
                 val apiEps = eps.filter { it.apiLike && (it.url.startsWith("http") || it.url.startsWith("ws")) }
                     .sortedWith(compareBy({ it.group }, { it.url }))
-                val tokens = mapOf(
+                val tokens = linkedMapOf(
                     "@@NAME@@" to name,
                     "@@PKG@@" to pkg,
                     "@@SITE@@" to CsGen.ks(site),
@@ -202,6 +233,39 @@ private fun MainActivity.buildCsZip(
                     "@@DATE@@" to date,
                     "@@COUNT@@" to apiEps.size.toString()
                 )
+                // ---- Sayfa analizi ve video raporu ile seçicileri doldur
+                val hints = CsHints.load(host)
+                val report = CsVideo.analyze(t, hints, ua)
+                val list = hints.optJSONObject("list")
+                val det = hints.optJSONObject("detail")
+                val titleSel = list?.optString("title").orEmpty()
+                tokens["@@CARD_SEL@@"] = CsGen.ks(list?.optString("card").orEmpty().ifBlank { "a:has(img)" })
+                tokens["@@POSTER_ATTR@@"] = CsGen.ks(list?.optString("posterAttr").orEmpty().ifBlank { "data-src" })
+                tokens["@@EPISODE_SEL@@"] = CsGen.ks(det?.optString("episodes").orEmpty())
+                tokens["@@TITLE_EXPR@@"] =
+                    if (titleSel.isNotBlank()) "selectFirst(\"${CsGen.ks(titleSel)}\")?.text()" else "null as String?"
+                val notes = ArrayList<String>()
+                notes += if (list != null) "Kartlar: ${list.optInt("count")} adet, seçici ${list.optString("card")}" else "Kartlar: bulunamadı, genel yedek seçici (a:has(img)) kullanılıyor"
+                notes += if (det?.optString("episodes").orEmpty().isNotEmpty()) "Bölümler: ${det!!.optInt("episodeCount")} adet, seçici ${det.optString("episodes")}" else "Bölümler: bulunamadı (film olarak ele alınır)"
+                notes += report.lines
+                tokens["@@ANALYSIS_NOTE@@"] = notes.joinToString("\n") { " *  - " + it.replace("*/", "* /").replace("\n", " ") }
+                val nav = hints.optJSONArray("nav")
+                val pages = StringBuilder("        \"\$mainUrl/\" to \"Ana sayfa\",")
+                if (nav != null) for (i in 0 until minOf(nav.length(), 8)) {
+                    val o = nav.optJSONObject(i) ?: continue
+                    pages.append("\n        \"\$mainUrl").append(CsGen.ks(o.optString("path")).trimEnd('/')).append("/\" to \"")
+                        .append(CsGen.ks(o.optString("name"))).append("\",")
+                }
+                tokens["@@MAIN_PAGES@@"] = pages.toString()
+                // Arama ucu bulunamadıysa sayfadaki arama formundan üret
+                val sf = hints.optJSONObject("search")
+                if (searchNote.startsWith("uç bulunamadı") && sf != null && sf.optString("param").isNotEmpty()) {
+                    val enc = "\${java.net.URLEncoder.encode(query, \"UTF-8\")}"
+                    tokens["@@SEARCH_URL@@"] = "\"\$mainUrl${CsGen.ks(sf.optString("path"))}?${CsGen.ks(sf.optString("param"))}=$enc\""
+                    tokens["@@SEARCH_NOTE@@"] = "sayfadaki arama formundan alındı (${sf.optString("param")})"
+                }
+                tokens["@@CRYPTO_PASS@@"] = report.passes.joinToString(", ") { "\"${CsGen.ks(it)}\"" }
+
                 fun tpl(file: String): String {
                     var s = assets.open("cs3/$file").bufferedReader().use { it.readText() }
                     tokens.forEach { (k, v) -> s = s.replace(k, v) }
@@ -244,6 +308,9 @@ private fun MainActivity.buildCsZip(
                     md.append("\n## Örnek istek gövdeleri\n")
                     samples.take(40).forEach { e -> md.append("\n**${e.method} ${e.url}**\n\n```\n${e.body}\n```\n") }
                 }
+
+                tokens["@@CRYPTO_CALL@@"] = if (report.passes.isNotEmpty()) tpl("crypto_call.txt") else ""
+                tokens["@@CRYPTO_FUN@@"] = if (report.passes.isNotEmpty()) tpl("crypto_fun.txt") else ""
 
                 val root = "$name-cloudstream"
                 val kt = "$root/$name/src/main/kotlin/" + pkg.replace('.', '/')
