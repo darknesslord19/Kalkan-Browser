@@ -1,6 +1,7 @@
 package app.kalkan.browser
 
 import android.net.Uri
+import android.widget.Toast
 import android.text.InputType
 import android.widget.LinearLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -130,6 +131,12 @@ private object CsGen {
 /** CloudStream eklenti iskeleti üretip ZIP olarak kaydeder. */
 internal fun MainActivity.exportCloudStream() {
     val t = pageTab() ?: return
+    // Bilgi bankasında bu site için çalışan referans eklenti varsa tarama gerekmez: doğrudan forma geç
+    if (try { CsBrain.hasRef(this, t.pageHost) } catch (_: Exception) { false }) {
+        Toast.makeText(this, "Bilgi bankasında çalışan ${CsBrain.siteName(this, t.pageHost)} eklentisi var — tarama atlandı", Toast.LENGTH_LONG).show()
+        exportCloudStreamForm(t, null)
+        return
+    }
     // Önce bu sayfayı analiz et (seçiciler site başına birikir), sonra formu aç
     analyzeCsPage(t) { _ ->
         csScanPanel(t, "Devam · eklenti ayarları") {
@@ -151,6 +158,10 @@ internal fun MainActivity.analyzeCsPage(tab: MainActivity.Tab, done: (JSONObject
 /** Araçlar menüsü: yalnızca sayfayı analiz et, durumu göster. */
 internal fun MainActivity.analyzeCsPageAndShow() {
     val t = pageTab() ?: return
+    if (try { CsBrain.hasRef(this, t.pageHost) } catch (_: Exception) { false }) {
+        Toast.makeText(this, "Bu site bilgi bankasında hazır (${CsBrain.siteName(this, t.pageHost)}) — tarama gerekmiyor", Toast.LENGTH_LONG).show()
+        return
+    }
     analyzeCsPage(t) { _ -> csScanPanel(t, "Tamam") {} }
 }
 

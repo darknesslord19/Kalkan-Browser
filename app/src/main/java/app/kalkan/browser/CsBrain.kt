@@ -117,4 +117,9 @@ internal object CsBrain {
         }
         return out
     }
+
+    /** Bu site için bankada çalışan referans eklenti kaynağı var mı? (varsa uzun tarama atlanır) */
+    fun hasRef(ctx: Context, host: String): Boolean = site(ctx, host)?.optString("ref").orEmpty().isNotEmpty()
+
+    fun siteName(ctx: Context, host: String): String = site(ctx, host)?.optString("name").orEmpty()
 }
