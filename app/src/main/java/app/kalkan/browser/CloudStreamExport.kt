@@ -264,6 +264,8 @@ private fun MainActivity.buildCsZip(
                 val encExpr = "\${java.net.URLEncoder.encode(query, \"UTF-8\")}"
                 val sf = hints.optJSONObject("search")
                 var searchCall: String? = null
+                val titles = ArrayList<String>()
+                list?.optJSONArray("titles")?.let { a -> for (i in 0 until a.length()) titles.add(a.optString(i)) }
                 if (searchNote.startsWith("uç bulunamadı")) {
                     if (sf != null && sf.optString("param").isNotEmpty()) {
                         val param = sf.optString("param")
@@ -283,11 +285,27 @@ private fun MainActivity.buildCsZip(
                             tokens["@@SEARCH_NOTE@@"] = "sayfadaki arama formundan alındı (GET $path, alan: $param)"
                         }
                     } else {
-                        val titles = ArrayList<String>()
-                        list?.optJSONArray("titles")?.let { a -> for (i in 0 until a.length()) titles.add(a.optString(i)) }
                         CsSearch.probe(origin, titles, ua)?.let { pat ->
                             tokens["@@SEARCH_URL@@"] = "\"\$mainUrl${CsGen.ks(pat).replace("%s", encExpr)}\""
                             tokens["@@SEARCH_NOTE@@"] = "adres yoklamasıyla bulundu ($pat)"
+                        }
+                    }
+                }
+                // Seçilen GET adresi (yakalanan uç, form ya da varsayılan) gerçekten arama yapıyor mu? Değilse yokla.
+                if (searchCall == null && titles.isNotEmpty()) {
+                    val pat = tokens["@@SEARCH_URL@@"].orEmpty().removeSurrounding("\"")
+                        .removePrefix("\$mainUrl").replace(encExpr, "%s")
+                    if (!pat.contains('\\') && pat.contains("%s")) {
+                        if (CsSearch.check(origin, pat, titles, ua)) {
+                            tokens["@@SEARCH_NOTE@@"] = tokens["@@SEARCH_NOTE@@"] + " · canlı sitede doğrulandı"
+                        } else {
+                            val fixed = CsSearch.probe(origin, titles, ua)
+                            if (fixed != null) {
+                                tokens["@@SEARCH_URL@@"] = "\"\$mainUrl${CsGen.ks(fixed).replace("%s", encExpr)}\""
+                                tokens["@@SEARCH_NOTE@@"] = "önceki tahmin doğrulanamadı, yoklamayla bulundu ($fixed)"
+                            } else {
+                                tokens["@@SEARCH_NOTE@@"] = tokens["@@SEARCH_NOTE@@"] + " · UYARI: doğrulanamadı, arama çalışmayabilir"
+                            }
                         }
                     }
                 }

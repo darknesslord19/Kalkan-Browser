@@ -75,15 +75,25 @@ var po=pick(/(poster|cover|afis|thumb)/i,function(e){return e.tagName==='IMG'||!
 if(po)d.poster=po.e.tagName==='IMG'?po.s:po.s+' img';
 var yr=pick(/(year|yil|release|date)/i,function(e){return /\b(19|20)\d{2}\b/.test(e.textContent)&&e.textContent.length<40;});
 if(yr)d.year=yr.s;
-var epRe=/(b[öo]l[üu]m|episode|\bep\b|sezon|season|\d+\s*x\s*\d+)/i,eg={};
+var epRe=/(\d+\s*\.?\s*(b[öo]l[üu]m|sezon|episode|season|ep)\b|\b(b[öo]l[üu]m|episode|ep|sezon|season)[\s-]*\d+|\d+\s*x\s*\d+)/i,eg={};
 each('a[href]',function(a){if(!same(a)||skip(a))return;
-  if(!epRe.test(a.textContent+' '+(a.getAttribute('href')||'')))return;
+  var tx=(a.textContent||'').replace(/\s+/g,' ')+' '+(a.getAttribute('href')||'');
+  if(!epRe.test(tx))return;
+  var nm=(tx.match(/\d+/)||[''])[0];
   var c=a.parentElement,n=0;while(c&&n<4&&cls(c).length===0){c=c.parentElement;n++;}
   if(!c||c===document.body)return;
-  var k=sig(c);(eg[k]=eg[k]||{h:{}}).h[a.href]=1;});
-var eb=null,en=1;Object.keys(eg).forEach(function(k){var n=Object.keys(eg[k].h).length;if(n>en){en=n;eb=k;}});
+  var k=sig(c);var g=eg[k]||(eg[k]={h:{},nums:{}});g.h[a.href]=1;g.nums[nm]=1;});
+var eb=null,en=1;
+Object.keys(eg).forEach(function(k){var n=Object.keys(eg[k].h).length,dn=Object.keys(eg[k].nums).length;if(dn>=2&&n>en){en=n;eb=k;}});
 if(eb){d.episodes=eb+' a';d.episodeCount=en;}
 if(Object.keys(d).length>3||d.episodes)out.detail=d;
+// ---- Sayfa türü: kart listesi yalnızca ana sayfa/kategori sayfasından, detay yalnızca detay sayfasından alınır.
+// Aksi halde detay sayfasındaki "benzer filmler" veya oyuncu bağlantıları gerçek kart seçicisini ezer.
+var isHome=location.pathname==='/'||/\/page\/\d+\/?$/.test(location.pathname);
+var bigGrid=!!(out.list&&out.list.count>=12);
+out.pageKind=(isHome||bigGrid)?'list':'detail';
+if(out.pageKind==='detail'){if(out.list){out.related=out.list;delete out.list;}}
+else{delete out.detail;}
 
 // ---- 3) Oynatıcı ve şifre izleri
 var p={};var fr=[];
@@ -296,25 +306,35 @@ object CsSearch {
     )
     private val TR = java.util.Locale("tr")
 
-    /** Bulunan adres kalıbını (%s = sorgu) döndürür; bulunamazsa null. */
-    fun probe(origin: String, titles: List<String>, ua: String): String? {
+    private fun phraseOf(titles: List<String>): String? {
         val raw = titles.firstOrNull { it.length >= 4 } ?: return null
         val phrase = raw.filter { it.isLetterOrDigit() || it == ' ' }.trim().take(20).trim()
-        if (phrase.length < 4) return null
+        return phrase.takeIf { it.length >= 4 }
+    }
+
+    /** Verilen adres kalıbı (%s = sorgu) gerçekten arama yapıyor mu? Başlıkla ve saçma kelimeyle iki istek atar. */
+    fun check(origin: String, pattern: String, titles: List<String>, ua: String): Boolean {
+        val phrase = phraseOf(titles) ?: return false
         val q = java.net.URLEncoder.encode(phrase, "UTF-8").replace("+", "%20")
         val needle = phrase.lowercase(TR)
+        return try {
+            val hit = ApiFinder.fetchText(origin + pattern.replace("%s", q), ua, origin, 1 shl 20)
+            if (hit.first != 200 || !hit.second.second.lowercase(TR).contains(needle)) return false
+            val miss = ApiFinder.fetchText(origin + pattern.replace("%s", "zqxjkw"), ua, origin, 1 shl 20)
+            // Anlamsız aramada da başlık görünüyorsa adres sorguyu yok sayıyor demektir
+            !(miss.first == 200 && miss.second.second.lowercase(TR).contains(needle))
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** Bulunan adres kalıbını (%s = sorgu) döndürür; bulunamazsa null. */
+    fun probe(origin: String, titles: List<String>, ua: String): String? {
+        if (phraseOf(titles) == null) return null
         val t0 = System.currentTimeMillis()
         for (p in PATTERNS) {
             if (System.currentTimeMillis() - t0 > 60_000) break
-            try {
-                val hit = ApiFinder.fetchText(origin + p.replace("%s", q), ua, origin, 1 shl 20)
-                if (hit.first != 200 || !hit.second.second.lowercase(TR).contains(needle)) continue
-                val miss = ApiFinder.fetchText(origin + p.replace("%s", "zqxjkw"), ua, origin, 1 shl 20)
-                // Anlamsız aramada da başlık görünüyorsa adres sorguyu yok sayıyor demektir
-                if (miss.first == 200 && miss.second.second.lowercase(TR).contains(needle)) continue
-                return p
-            } catch (_: Exception) {
-            }
+            if (check(origin, p, titles, ua)) return p
         }
         return null
     }

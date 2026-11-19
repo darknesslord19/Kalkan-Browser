@@ -10,9 +10,9 @@ cloudstream {
      * 0: Çalışmıyor
      * 1: Çalışıyor
      * 2: Yavaş
-     * 3: Sadece beta
+     * 3: Sadece beta (normal CloudStream sürümünde listelenmeyebilir)
      */
-    status = 3
+    status = 1
 
     tvTypes = listOf(@@TVTYPES_GRADLE@@)
     language = "@@LANG@@"
