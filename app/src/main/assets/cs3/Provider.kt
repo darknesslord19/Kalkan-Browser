@@ -62,12 +62,79 @@ class @@NAME@@Provider : MainAPI() {
         }
     }
 
+    // Birincil arama boş dönerse sırayla denenen yaygın arama adresleri (%s = sorgu)
+    private val searchFallbacks = listOf(
+        "/?s=%s", "/search?q=%s", "/search/?q=%s", "/arama?q=%s", "/arama/?q=%s", "/ara?q=%s",
+        "/index.php?do=search&subaction=search&story=%s", "/search/%s", "/arama/%s", "/ara/%s",
+        "/?q=%s", "/?search=%s", "/search?query=%s", "/api/search?q=%s", "/ajax/search?q=%s"
+    )
+
+    private fun jsonStrings(node: Any?, out: MutableList<String>) {
+        when (node) {
+            is org.json.JSONObject -> node.keys().forEach { jsonStrings(node.opt(it), out) }
+            is org.json.JSONArray -> for (i in 0 until node.length()) jsonStrings(node.opt(i), out)
+            is String -> out.add(node)
+        }
+    }
+
+    /** Arama yanıtını (HTML ya da JSON içinde HTML/nesne listesi) sonuç listesine çevirir. */
+    private fun parseSearch(body: String): List<SearchResponse> {
+        val t = body.trim()
+        if (t.isEmpty()) return emptyList()
+        val selectors = listOf(cardSelector, "article a[href]", "a[href]:has(img)")
+        val docs = ArrayList<org.jsoup.nodes.Document>()
+        if (t.startsWith("{") || t.startsWith("[")) {
+            val strs = ArrayList<String>()
+            try { jsonStrings(if (t.startsWith("[")) org.json.JSONArray(t) else org.json.JSONObject(t), strs) } catch (_: Exception) {}
+            val html = strs.filter { it.contains("<") && it.contains(">") }.joinToString("\n")
+            if (html.isNotBlank()) docs.add(org.jsoup.Jsoup.parse(html, mainUrl))
+            // Nesne listesi: {title/name, url/link/slug, poster/image}
+            try {
+                val arr = ArrayList<org.json.JSONObject>()
+                fun walk(n: Any?) {
+                    when (n) {
+                        is org.json.JSONObject -> { if ((n.has("title") || n.has("name")) && (n.has("url") || n.has("link") || n.has("slug") || n.has("uri"))) arr.add(n) else n.keys().forEach { walk(n.opt(it)) } }
+                        is org.json.JSONArray -> for (i in 0 until n.length()) walk(n.opt(i))
+                    }
+                }
+                walk(if (t.startsWith("[")) org.json.JSONArray(t) else org.json.JSONObject(t))
+                val res = arr.mapNotNull { o ->
+                    val ttl = o.optString("title").ifBlank { o.optString("name") }.trim()
+                    val raw = listOf("url", "link", "uri", "slug").map { o.optString(it) }.firstOrNull { it.isNotBlank() } ?: return@mapNotNull null
+                    val href = fixUrlNull(raw) ?: return@mapNotNull null
+                    val img = listOf("poster", "image", "img", "thumb", "thumbnail", "cover").map { o.optString(it) }.firstOrNull { it.isNotBlank() }
+                    if (ttl.isBlank()) null else newMovieSearchResponse(ttl, href, TvType.Movie) { this.posterUrl = fixUrlNull(img) }
+                }
+                if (res.isNotEmpty()) return res.distinctBy { it.url }
+            } catch (_: Exception) {}
+        } else docs.add(org.jsoup.Jsoup.parse(t, mainUrl))
+        for (d in docs) for (sel in selectors) {
+            val r = d.select(sel).mapNotNull { it.toSearchResult() }.distinctBy { it.url }
+            if (r.isNotEmpty()) return r
+        }
+        return emptyList()
+    }
+
     override suspend fun search(query: String): List<SearchResponse> {
         // Arama ucu: @@SEARCH_NOTE@@
-        @@SEARCH_CALL@@
-        // Yanıt JSON ise bir data class tanımlayıp şöyle okuyabilirsin:
-        // val json = response.parsedSafe<AramaYaniti>()
-        return response.document.select(cardSelector).mapNotNull { it.toSearchResult() }.distinctBy { it.url }
+        val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+        val xhr = mapOf("X-Requested-With" to "XMLHttpRequest")
+        val primaryBody = try {
+            @@SEARCH_CALL@@
+            response.text
+        } catch (_: Exception) { "" }
+        var results = parseSearch(primaryBody)
+        if (results.isEmpty()) {
+            for (p in searchFallbacks) {
+                val u = mainUrl + p.replace("%s", encoded)
+                for (h in listOf(emptyMap(), xhr)) {
+                    val body = try { app.get(u, referer = mainUrl, headers = h).text } catch (_: Exception) { "" }
+                    results = parseSearch(body)
+                    if (results.isNotEmpty()) return results
+                }
+            }
+        }
+        return results
     }
 
     override suspend fun load(url: String): LoadResponse? {

@@ -119,14 +119,20 @@ p.scripts=ss.slice(0,10);
 if(p.iframes.length||p.video||p.cryptojs||p.aes||p.packed||p.m3u8.length)out.player=p;
 
 // ---- 4) Arama formu ve menü
-var si=document.querySelector('input[type=search],input[name=s],input[name=q],input[name=query],input[name=search],input[name=keyword],input[name=story],input[name=term],input[name=arama],input[placeholder*="ara" i],input[placeholder*="search" i],input[name*="search" i]');
-if(si&&si.name){
-  var f=si.form;
-  if(f){var prm={};Array.prototype.forEach.call(f.elements,function(e){if(e.name&&e!==si&&e.type==='hidden')prm[e.name]=e.value;});
+var si=document.querySelector('input[type=search],input[name=s],input[name=q],input[name=query],input[name=search],input[name=keyword],input[name=story],input[name=term],input[name=arama],input[placeholder*="ara" i],input[placeholder*="search" i],input[name*="search" i],input[id*="search" i],input[class*="search" i],input[aria-label*="ara" i],input[aria-label*="search" i]');
+if(!si){var SR=/(search|arama|\bara\b|find|query|suche)/i;
+  si=Array.prototype.filter.call(document.querySelectorAll('input[type=text],input:not([type])'),function(e){
+    var fa=e.form?(e.form.getAttribute('action')||''):'';var par=e.closest('[class*=search i],[id*=search i],[role=search],form');
+    return SR.test((e.id||'')+' '+(e.className||'')+' '+(e.name||'')+' '+(e.placeholder||'')+' '+fa+' '+(par?(par.className||'')+' '+(par.id||''):''));})[0]||null;}
+if(!si){var sf0=document.querySelector('form[role=search],form[action*="search" i],form[action*="ara" i],form[action*="?s=" i]');
+  if(sf0)si=sf0.querySelector('input:not([type=hidden]):not([type=submit])');}
+if(si){
+  var f=si.form;var nm=si.name||'';
+  if(f&&nm){var prm={};Array.prototype.forEach.call(f.elements,function(e){if(e.name&&e!==si&&e.type==='hidden')prm[e.name]=e.value;});
     var pth2='/';try{pth2=new URL(f.getAttribute('action')||location.pathname,location.href).pathname;}catch(e){}
-    out.search={param:si.name,path:pth2,method:(f.method||'get').toLowerCase(),params:prm};
-  }else out.searchInput={name:si.name,placeholder:(si.placeholder||'').slice(0,30)};
-}else if(si)out.searchInput={name:'',placeholder:(si.placeholder||'').slice(0,30)};
+    out.search={param:nm,path:pth2,method:(f.method||'get').toLowerCase(),params:prm};
+  }else out.searchInput={name:nm,placeholder:(si.placeholder||'').slice(0,30)};
+}
 var nav=[],seen={};
 each('nav a[href],header a[href]',function(a){var t=(a.textContent||'').trim().replace(/\s+/g,' ');
   if(!t||t.length>30||!same(a))return;var pth=new URL(a.href,location.href).pathname;
@@ -301,10 +307,15 @@ object CsVideo {
 object CsSearch {
     private val PATTERNS = listOf(
         "/?s=%s", "/search?q=%s", "/?q=%s", "/arama?q=%s", "/ara?q=%s",
+        "/search/?q=%s", "/arama/?q=%s", "/ara/?q=%s", "/search/?s=%s", "/search?s=%s",
         "/index.php?do=search&subaction=search&story=%s",
-        "/search/%s", "/arama/%s", "/ara/%s", "/?search=%s", "/search?query=%s", "/?keyword=%s", "/search?keyword=%s"
+        "/search/%s", "/arama/%s", "/ara/%s", "/?search=%s", "/search?query=%s", "/search/?query=%s",
+        "/?keyword=%s", "/search?keyword=%s", "/search.php?q=%s", "/find?q=%s",
+        "/ajax/search?q=%s", "/api/search?q=%s", "/api/search?query=%s", "/wp-json/wp/v2/search?search=%s",
+        "/wp-admin/admin-ajax.php?action=ajax_search&s=%s"
     )
     private val TR = java.util.Locale("tr")
+    private val XHR = mapOf("X-Requested-With" to "XMLHttpRequest", "Accept" to "text/html,application/json,*/*")
 
     private fun phraseOf(titles: List<String>): String? {
         val raw = titles.firstOrNull { it.length >= 4 } ?: return null
@@ -312,20 +323,37 @@ object CsSearch {
         return phrase.takeIf { it.length >= 4 }
     }
 
-    /** Verilen adres kalıbı (%s = sorgu) gerçekten arama yapıyor mu? Başlıkla ve saçma kelimeyle iki istek atar. */
+    /** Yanıtı karşılaştırmaya hazırlar: JSON kaçışlarını açar, Türkçe harfleri sadeleştirir, küçültür. */
+    private fun fold(t: String): String {
+        var x = t
+        if (x.contains("\\u") || x.contains("\\/")) {
+            x = Regex("\\\\u([0-9a-fA-F]{4})").replace(x) { it.groupValues[1].toInt(16).toChar().toString() }.replace("\\/", "/")
+        }
+        x = x.replace("&amp;", "&").replace("&#39;", "'").replace("&quot;", "\"")
+        val sb = StringBuilder(x.length)
+        for (ch in x.lowercase(TR)) sb.append(when (ch) { 'ı' -> 'i'; 'ş' -> 's'; 'ğ' -> 'g'; 'ü' -> 'u'; 'ö' -> 'o'; 'ç' -> 'c'; else -> ch })
+        return sb.toString()
+    }
+
+    private fun get(url: String, ua: String, origin: String, xhr: Boolean) =
+        ApiFinder.fetchText(url, ua, origin, 1 shl 20, if (xhr) XHR else emptyMap())
+
+    /** Verilen adres kalıbı (%s = sorgu) gerçekten arama yapıyor mu? Başlıkla ve saçma kelimeyle iki istek atar (HTML ya da JSON). */
     fun check(origin: String, pattern: String, titles: List<String>, ua: String): Boolean {
         val phrase = phraseOf(titles) ?: return false
         val q = java.net.URLEncoder.encode(phrase, "UTF-8").replace("+", "%20")
-        val needle = phrase.lowercase(TR)
-        return try {
-            val hit = ApiFinder.fetchText(origin + pattern.replace("%s", q), ua, origin, 1 shl 20)
-            if (hit.first != 200 || !hit.second.second.lowercase(TR).contains(needle)) return false
-            val miss = ApiFinder.fetchText(origin + pattern.replace("%s", "zqxjkw"), ua, origin, 1 shl 20)
-            // Anlamsız aramada da başlık görünüyorsa adres sorguyu yok sayıyor demektir
-            !(miss.first == 200 && miss.second.second.lowercase(TR).contains(needle))
-        } catch (_: Exception) {
-            false
+        val needle = fold(phrase)
+        for (xhr in listOf(false, true)) {
+            try {
+                val hit = get(origin + pattern.replace("%s", q), ua, origin, xhr)
+                if (hit.first != 200 || !fold(hit.second.second).contains(needle)) continue
+                val miss = get(origin + pattern.replace("%s", "zqxjkw"), ua, origin, xhr)
+                // Anlamsız aramada da başlık görünüyorsa adres sorguyu yok sayıyor demektir
+                if (!(miss.first == 200 && fold(miss.second.second).contains(needle))) return true
+            } catch (_: Exception) {
+            }
         }
+        return false
     }
 
     /** Bulunan adres kalıbını (%s = sorgu) döndürür; bulunamazsa null. */
@@ -333,7 +361,7 @@ object CsSearch {
         if (phraseOf(titles) == null) return null
         val t0 = System.currentTimeMillis()
         for (p in PATTERNS) {
-            if (System.currentTimeMillis() - t0 > 60_000) break
+            if (System.currentTimeMillis() - t0 > 75_000) break
             if (check(origin, p, titles, ua)) return p
         }
         return null

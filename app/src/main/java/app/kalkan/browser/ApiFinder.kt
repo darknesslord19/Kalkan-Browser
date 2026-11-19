@@ -198,13 +198,14 @@ object ApiFinder {
             try { URL(URL(base), it.groupValues[1].replace("&amp;", "&")).toString() } catch (_: Exception) { null }
         }.toList()
 
-    fun fetchText(url: String, ua: String, referer: String?, limit: Int = 4 shl 20): Pair<Int, Pair<String, String>> {
+    fun fetchText(url: String, ua: String, referer: String?, limit: Int = 4 shl 20, headers: Map<String, String> = emptyMap()): Pair<Int, Pair<String, String>> {
         val c = Net.open(url)
         c.connectTimeout = 10000
         c.readTimeout = 15000
         c.instanceFollowRedirects = true
         c.setRequestProperty("User-Agent", ua)
         if (!referer.isNullOrEmpty()) c.setRequestProperty("Referer", referer)
+        for ((hk, hv) in headers) c.setRequestProperty(hk, hv)
         try {
             CookieManager.getInstance().getCookie(url)?.let { c.setRequestProperty("Cookie", it) }
         } catch (_: Exception) {
