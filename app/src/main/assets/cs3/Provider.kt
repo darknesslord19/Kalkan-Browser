@@ -335,6 +335,129 @@ class @@NAME@@Provider : MainAPI() {
         }
     }
 
+    // ---- Ortak oynatıcı aileleri (çalışan eklentilerden öğrenildi): bePlayer(AES), ContentX, getVideo(hash POST),
+    // ---- VideoSeyred playlist, Rapid/CloseLoad/Rapidrame anahtar+dizi çözücü
+    private fun evpKeyIv(pass: ByteArray, salt: ByteArray): Pair<ByteArray, ByteArray> {
+        val md = java.security.MessageDigest.getInstance("MD5")
+        var d = ByteArray(0); var prev = ByteArray(0)
+        while (d.size < 48) { md.reset(); prev = md.digest(prev + pass + salt); d += prev }
+        return d.copyOfRange(0, 32) to d.copyOfRange(32, 48)
+    }
+
+    private fun hexBytes(s: String) = ByteArray(s.length / 2) { i -> ((Character.digit(s[i * 2], 16) shl 4) + Character.digit(s[i * 2 + 1], 16)).toByte() }
+
+    private fun cryptoJsDecrypt(pass: String, json: String): String? = try {
+        val o = org.json.JSONObject(json)
+        val (k0, iv0) = evpKeyIv(pass.toByteArray(Charsets.UTF_8), hexBytes(o.getString("s")))
+        val iv = if (o.has("iv") && !o.isNull("iv")) hexBytes(o.getString("iv")) else iv0
+        val c = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding")
+        c.init(javax.crypto.Cipher.DECRYPT_MODE, javax.crypto.spec.SecretKeySpec(k0, "AES"), javax.crypto.spec.IvParameterSpec(iv))
+        String(c.doFinal(android.util.Base64.decode(o.getString("ct"), android.util.Base64.DEFAULT)), Charsets.UTF_8)
+    } catch (_: Throwable) { null }
+
+    private fun legacyDecode(js: String, arrStr: String): String {
+        val sb = StringBuilder()
+        Regex("\"([^\"]+)\"").findAll(arrStr).forEach { sb.append(it.groupValues[1]) }
+        var value = sb.toString()
+        val keys = Regex("var\\s+[a-zA-Z0-9_]+\\s*=\\s*[\"']([^\"']+)[\"'];\\s*var\\s+[a-zA-Z0-9_]+\\s*=\\s*[\"']([^\"']+)[\"'];").find(js) ?: return ""
+        val key1 = keys.groupValues[1]; val key2 = keys.groupValues[2]
+        var o0 = 0; var rb = 0
+        for (i in key1.indices) { val c = key1[i].code; o0 = (o0 * 31 + c) % 251; rb = (rb xor (c + i)) and 255 }
+        val lb = (o0 + rb) % 256; val u2 = (o0 % 13) + 3; var d6 = ((o0 * 256 + rb) % 65521) + 1
+        for (i in key2.length - 1 downTo 0) {
+            when (key2[i]) {
+                'b' -> { var p = value; val m = p.length % 4; if (m != 0) p += "=".repeat(4 - m)
+                    value = String(android.util.Base64.decode(p, android.util.Base64.DEFAULT), Charsets.ISO_8859_1) }
+                'v' -> value = value.reversed()
+                else -> { val sh = (26 - ((key2[i].code - 64) % 26)) % 26
+                    value = value.map { c -> if (c.isLetter()) { val b = if (c.code <= 90) 65 else 97; ((c.code - b + sh) % 26 + b).toChar() } else c }.joinToString("") }
+            }
+        }
+        if (value.startsWith("http")) return value
+        val sh = IntArray(value.length)
+        for (i in value.length - 1 downTo 1) { d6 = (d6 * 75 + 74) % 65537; sh[i] = d6 % (i + 1) }
+        val ch = value.toCharArray()
+        for (i in 1 until value.length) { val j = sh[i]; val t = ch[i]; ch[i] = ch[j]; ch[j] = t }
+        var tds = lb; val out = StringBuilder()
+        for (c in String(ch)) { val w = c.code; tds = (tds + u2) % 256; out.append((w xor tds).toChar()); tds = (tds + w) % 256 }
+        return out.toString()
+    }
+
+    private fun mediaUrlOk(u: String?): Boolean {
+        if (u.isNullOrBlank() || !u.startsWith("http")) return false
+        val l = u.lowercase()
+        if (l.contains(".vtt") || l.contains(".srt") || Regex("\\.(jpe?g|png|webp|gif|svg|js|css)(\\?|$)").containsMatchIn(l)) return false
+        if (l.contains("embed/?") || l.contains("<html") || l.contains("<!doctype")) return false
+        return Regex("m3u8|\\.txt|/hls/|\\.mp4|\\.m3u|master|/m3u/|/list/").containsMatchIn(l)
+    }
+
+    private suspend fun knownPlayers(
+        html: String, pageUrl: String, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val origin = Regex("(https?://[^/]+)").find(pageUrl)?.groupValues?.get(1) ?: return false
+        val cands = LinkedHashSet<String>()
+        fun addSubs(text: String) {
+            Regex("\"(?:file|src)\"\\s*:\\s*\"([^\"]+\\.(?:vtt|srt)[^\"]*)\"[^}]*?\"label\"\\s*:\\s*\"([^\"]+)\"").findAll(text).forEach {
+                val u = it.groupValues[1].replace("\\/", "/").replace("\\u0026", "&")
+                subtitleCallback(SubtitleFile(it.groupValues[2], if (u.startsWith("http")) u else origin + (if (u.startsWith("/")) "" else "/") + u))
+            }
+        }
+        // 1) bePlayer('parola','{"ct":..,"iv":..,"s":..}')
+        Regex("bePlayer\\s*\\(\\s*['\"]([^'\"]+)['\"]\\s*,\\s*['\"](\\{[^}]+\\})['\"]\\s*\\)").find(html)?.let { m ->
+            cryptoJsDecrypt(m.groupValues[1], m.groupValues[2].replace("\\/", "/"))?.let { plain ->
+                val p = plain.replace("\\/", "/")
+                Regex("\"(?:video_location|file|src|hls)\"\\s*:\\s*\"([^\"]+)\"").findAll(p).map { it.groupValues[1] }.filter { mediaUrlOk(it) }.forEach { cands.add(it) }
+                addSubs(p)
+            }
+        }
+        // 2) ContentX: window.openPlayer('ID') -> /source2.php?v=ID
+        Regex("window\\.openPlayer\\('([^']+)'").find(html)?.groupValues?.get(1)?.let { id ->
+            val body = runCatching { app.get("$origin/source2.php?v=$id", referer = pageUrl).text }.getOrNull().orEmpty()
+            Regex("file\":\"([^\"]+)").findAll(body).map { it.groupValues[1].replace("\\", "") }.forEach {
+                cands.add(if (it.contains("hotlinger") || it.contains("dplayer82.site")) it.replace("m.php", "master.m3u8") else it)
+            }
+            addSubs(html)
+        }
+        // 3) getVideo: /video/ID veya ?data=ID  (HDPlayerSystem, PeaceMakerst, PlayerKorea, YildizKisaFilm ...)
+        val vid = when { pageUrl.contains("/video/") -> pageUrl.substringAfter("/video/").substringBefore("?"); pageUrl.contains("?data=") -> pageUrl.substringAfter("?data=").substringBefore("&"); else -> "" }
+        if (vid.isNotBlank() && cands.isEmpty() && Regex("player|embed|video|hdplayer|peace|stream", RegexOption.IGNORE_CASE).containsMatchIn(pageUrl)) {
+            for (post in listOf("$origin/player/index.php?data=$vid&do=getVideo", pageUrl.substringBefore("?") + "?do=getVideo")) {
+                val body = runCatching {
+                    app.post(post, data = mapOf("hash" to vid, "r" to "", "s" to ""), referer = pageUrl,
+                        headers = mapOf("Content-Type" to "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With" to "XMLHttpRequest")).text
+                }.getOrNull()?.replace("\\/", "/").orEmpty()
+                Regex("\"(?:securedLink|hls|videoSource|file)\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.filter { mediaUrlOk(it) }.forEach { cands.add(it) }
+                if (cands.isNotEmpty()) break
+            }
+        }
+        // 4) VideoSeyred: /embed/ID -> /playlist/ID.json
+        if (pageUrl.contains("/embed/") && Regex("seyred|playlist", RegexOption.IGNORE_CASE).containsMatchIn(pageUrl + html.take(2000))) {
+            val id = pageUrl.substringAfter("/embed/").substringBefore("?")
+            val body = runCatching { app.get("$origin/playlist/$id.json").text }.getOrNull()?.replace("\\/", "/").orEmpty()
+            Regex("\"file\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.filter { mediaUrlOk(it) }.forEach { cands.add(it) }
+            Regex("\"file\"\\s*:\\s*\"([^\"]+\\.vtt)\"[^}]*?\"label\"\\s*:\\s*\"([^\"]+)\"").findAll(body).forEach { subtitleCallback(SubtitleFile(it.groupValues[2], it.groupValues[1])) }
+        }
+        // 5) Rapid / CloseLoad / Rapidrame: anahtar + dizi ile gizlenmiş adres
+        if (cands.isEmpty()) {
+            val scripts = org.jsoup.Jsoup.parse(html).select("script").joinToString("\n;\n") { it.data() }.ifBlank { html }
+            val packed = if (scripts.contains("eval(function(p,a,c,k,e,d)")) runCatching { JsUnpacker(scripts).unpack() }.getOrNull().orEmpty() else ""
+            for (js in listOf(scripts + "\n" + packed, html)) {
+                for (m in Regex("\\[\\s*\"[^\\]]+\"\\s*\\]").findAll(js).take(40)) {
+                    val arr = m.value
+                    if (Regex("\\.(jpg|png|webp)").containsMatchIn(arr)) continue
+                    val d = runCatching { legacyDecode(js, arr) }.getOrNull().orEmpty()
+                    if (mediaUrlOk(d)) { cands.add(d); break }
+                }
+                if (cands.isNotEmpty()) break
+            }
+        }
+        var ok = false
+        for (c in cands.map { it.replace("\\/", "/") }.distinct().take(6)) {
+            if (emitStreams(c, pageUrl, callback) || sniffHls(c, pageUrl, callback)) ok = true
+        }
+        return ok
+    }
+
     /** Sayfa betiklerini Rhino ile çalıştırıp (sahte DOM ile) oluşan değişkenlerden / jwplayer.setup'tan akış adreslerini toplar. */
     @Suppress("DEPRECATION")
     private fun rhinoDecode(doc: org.jsoup.nodes.Document, pageUrl: String): List<String> {
@@ -470,6 +593,7 @@ class @@NAME@@Provider : MainAPI() {
         }
         if (emitStreams(text, referer, callback)) found = true
 
+        if (!found && knownPlayers(text, referer, subtitleCallback, callback)) found = true
         if (!found) {
             val viaJs = rhinoDecode(doc ?: org.jsoup.Jsoup.parse(text), referer) + ajaxHashStreams(text, referer)
             for (c in viaJs.distinct().take(8)) if (emitStreams(c, referer, callback) || sniffHls(c, referer, callback)) { found = true; break }
