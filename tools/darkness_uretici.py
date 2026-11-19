@@ -507,9 +507,9 @@ class @@NAME@@ : MainAPI() {
     /** Liste/arama sayfasındaki tek bir içerik kartı. */
     private val cardSelector = "@@CARD@@"
     /** Kart içinde başlık (sırayla denenir; yoksa a[title] / img[alt]). */
-    private val titleSelectors = listOf(@@TITLESEL@@)
+    private val titleSelectors = listOf<String>(@@TITLESEL@@)
     /** Afiş resminin adresinin bulunduğu özellikler (sırayla). */
-    private val posterAttrs = listOf(@@POSTERATTRS@@)
+    private val posterAttrs = listOf<String>(@@POSTERATTRS@@)
     /** Arama adresi: {q} = aranan kelime. Boşsa arama kapalı. */
     private val searchUrl = @@SEARCH@@
     /** Sayfalama: {url} = liste adresi, {page} = sayfa no. Boşsa tek sayfa. */
@@ -517,8 +517,8 @@ class @@NAME@@ : MainAPI() {
     /** Dizi sayfasındaki bölüm linkleri. */
     private val episodeSelector = "@@EPSEL@@"
     /** Adreste bunlar geçiyorsa film / dizi kabul edilir. */
-    private val movieHints = listOf(@@MOVIEHINTS@@)
-    private val seriesHints = listOf(@@SERIESHINTS@@)
+    private val movieHints = listOf<String>(@@MOVIEHINTS@@)
+    private val seriesHints = listOf<String>(@@SERIESHINTS@@)
     /** WordPress DooPlay teması (admin-ajax.php doo_player_ajax). */
     private val useDooPlay = @@DOOPLAY@@
 
