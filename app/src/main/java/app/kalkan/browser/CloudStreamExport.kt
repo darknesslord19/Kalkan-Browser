@@ -253,6 +253,9 @@ private fun MainActivity.buildCsZip(
                 tokens["@@CARD_SEL@@"] = CsGen.ks(if (list?.optBoolean("bad") == true) "a:has(img)" else list?.optString("card").orEmpty().ifBlank { "a:has(img)" })
                 tokens["@@POSTER_ATTR@@"] = CsGen.ks(list?.optString("posterAttr").orEmpty().ifBlank { "data-src" })
                 tokens["@@EPISODE_SEL@@"] = CsGen.ks(det?.optString("episodes").orEmpty())
+                tokens["@@PLOT_SEL@@"] = CsGen.ks(det?.optString("plot").orEmpty())
+                tokens["@@POSTER_SEL@@"] = CsGen.ks(det?.optString("poster").orEmpty())
+                tokens["@@YEAR_SEL@@"] = CsGen.ks(det?.optString("year").orEmpty())
                 tokens["@@TITLE_EXPR@@"] =
                     if (titleSel.isNotBlank()) "selectFirst(\"${CsGen.ks(titleSel)}\")?.text()" else "null as String?"
                 val notes = ArrayList<String>()

@@ -3,6 +3,8 @@ package @@PKG@@
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
+import com.lagradost.cloudstream3.LoadResponse.Companion.addActors
+import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 
 /**
  * @@SITE@@ için CloudStream sağlayıcısı.
@@ -235,39 +237,122 @@ class @@NAME@@Provider : MainAPI() {
         return results
     }
 
+    private val plotSel = "@@PLOT_SEL@@"
+    private val posterSel = "@@POSTER_SEL@@"
+    private val yearSel = "@@YEAR_SEL@@"
+    private val seasonRe = Regex("(?i)(\\d+)\\s*\\.?\\s*(sezon|season)|(?:sezon|season)[\\s-]*(\\d+)")
+    private val epNumRe = Regex("(?i)(\\d+)\\s*\\.?\\s*(b[öo]l[üu]m|episode|ep)\\b|(?:b[öo]l[üu]m|episode|ep)[\\s-]*(\\d+)")
+
+    private fun cleanTitle(t: String): String {
+        var x = t.trim()
+        x = x.replace(Regex("\\s*[|\\-–—]\\s*[^|\\-–—]{2,40}$"), "")
+        x = x.replace(Regex("(?i)\\s*(full\\s*hd\\s*)?(film(i)?\\s*)?(t[üu]rk[çc]e\\s*(dublaj|altyaz[ıi]l[ıi]?)?\\s*)?(izle|izleyin|izle\\s*hd).*$"), "")
+        return x.trim().ifBlank { t.trim() }
+    }
+
+    private fun yearOf(d: org.jsoup.nodes.Document, titleText: String): Int? {
+        val cands = listOfNotNull(
+            if (yearSel.isNotBlank()) d.selectFirst(yearSel)?.text() else null,
+            d.selectFirst("a[href*=/yil/], a[href*=/year/], a[href*=/release-year/]")?.text(),
+            d.selectFirst("[class*=year], [class*=yil], [class*=release]")?.text()?.takeIf { it.length < 60 },
+            titleText
+        )
+        for (c in cands) Regex("\\b(19[3-9]\\d|20[0-3]\\d)\\b").find(c)?.value?.toIntOrNull()?.let { return it }
+        return null
+    }
+
+    private fun durationOf(d: org.jsoup.nodes.Document): Int? {
+        val t = d.select("[class*=duration], [class*=sure], [class*=runtime], li, span, div")
+            .map { it.ownText().trim() }
+            .firstOrNull { it.length < 40 && Regex("(?i)\\b\\d{2,3}\\s*(dk|dakika|min)").containsMatchIn(it) } ?: return null
+        return Regex("(\\d{2,3})").find(t)?.value?.toIntOrNull()
+    }
+
+    private fun scoreOf(d: org.jsoup.nodes.Document): Double? {
+        val t = d.selectFirst("[class*=imdb], [class*=rating], [class*=puan], [class*=score]")?.text() ?: return null
+        val v = Regex("\\b(10(?:[.,]0)?|\\d[.,]\\d)\\b").find(t)?.value?.replace(',', '.')?.toDoubleOrNull() ?: return null
+        return v.takeIf { it in 0.1..10.0 }
+    }
+
     override suspend fun load(url: String): LoadResponse? {
         val document = fetch(url).document.let { d -> if (d.selectFirst("h1") == null) (routerDoc(url) ?: d) else d }
 
-        val title = document.selectFirst("h1")?.text()?.trim()
-            ?: document.selectFirst("meta[property=og:title]")?.attr("content")
+        val rawTitle = document.selectFirst("h1")?.text()?.trim()?.takeIf { it.isNotBlank() }
+            ?: document.selectFirst("meta[property=og:title]")?.attr("content")?.takeIf { it.isNotBlank() }
+            ?: document.title().takeIf { it.isNotBlank() }
             ?: return null
-        val poster = fixUrlNull(document.selectFirst("meta[property=og:image]")?.attr("content"))
-        val plot = document.selectFirst("meta[property=og:description]")?.attr("content")
-        val year = Regex("(19|20)\\d{2}")
-            .find(document.selectFirst("[class*=year], [class*=yil], [class*=release]")?.text() ?: "")?.value?.toIntOrNull()
+        val title = cleanTitle(rawTitle)
+        fun imgOf(e: Element) = listOf("data-src", "data-original", "src").map { e.attr(it) }.firstOrNull { it.isNotBlank() && !it.startsWith("data:") }
+        val poster = fixUrlNull(
+            (if (posterSel.isNotBlank()) document.selectFirst(posterSel)?.let { imgOf(it) } else null)
+                ?: document.selectFirst("meta[property=og:image]")?.attr("content")
+                ?: document.selectFirst("[class*=poster] img, [class*=cover] img")?.let { imgOf(it) }
+        )
+        val plot = (if (plotSel.isNotBlank()) document.selectFirst(plotSel)?.text()?.trim() else null)?.takeIf { it.length > 20 }
+            ?: document.selectFirst("meta[property=og:description], meta[name=description]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+        val year = yearOf(document, rawTitle)
+        val tags = document.select("a[href*=/tur/], a[href*=/turu/], a[href*=/genre], a[href*=/kategori/], a[href*=/category/]")
+            .map { it.text().trim() }.filter { it.length in 2..28 }.distinct().take(8)
+        val actors = document.select("a[href*=/oyuncu], a[href*=/actor], a[href*=/cast/], a[href*=/stars/]")
+            .map { it.text().trim() }.filter { it.length in 3..40 }.distinct().take(12)
+        val recs = document.select("[class*=related] a:has(img), [class*=benzer] a:has(img), [class*=similar] a:has(img), [class*=recommend] a:has(img)")
+            .mapNotNull { it.toSearchResult() }.distinctBy { it.url }.filter { it.url != url }.take(12)
+        val trailer = document.selectFirst("iframe[src*=youtube], iframe[data-src*=youtube], a[href*=youtube.com/watch], [data-trailer], [data-youtube]")
+            ?.let { e -> listOf("src", "data-src", "href", "data-trailer", "data-youtube").map { e.attr(it) }.firstOrNull { it.isNotBlank() } }
+            ?.let { fixUrlNull(it) }
+        val dur = durationOf(document)
+        val sc = scoreOf(document)
 
         val episodes = if (episodeSelector.isBlank()) emptyList() else
             document.select(episodeSelector).filter { epRegex.containsMatchIn(it.text() + " " + it.attr("href")) }.mapIndexedNotNull { i, ep ->
                 val href = fixUrlNull(ep.attr("href")) ?: return@mapIndexedNotNull null
+                val tx = ep.text().trim() + " " + ep.attr("href")
+                val sn = seasonRe.find(tx)?.let { it.groupValues[1].ifBlank { it.groupValues[3] } }?.toIntOrNull()
+                val en = epNumRe.find(tx)?.let { it.groupValues[1].ifBlank { it.groupValues[3] } }?.toIntOrNull()
                 newEpisode(url = href, initializer = {
                     this.name = ep.text().trim().ifBlank { "Bölüm ${i + 1}" }
-                    this.episode = i + 1
+                    this.season = sn
+                    this.episode = en ?: (i + 1)
                 })
-            }.distinctBy { it.data }
+            }.distinctBy { it.data }.sortedWith(compareBy({ it.season ?: 1 }, { it.episode ?: 0 }))
 
         return if (episodes.size > 1) {
             newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
-                this.posterUrl = poster
-                this.plot = plot
-                this.year = year
+                this.posterUrl = poster; this.plot = plot; this.year = year
+                this.tags = tags; this.duration = dur; this.recommendations = recs
+                sc?.let { this.score = Score.from(it, 10) }
+                if (actors.isNotEmpty()) addActors(actors)
+                trailer?.let { addTrailer(it) }
             }
         } else {
             newMovieLoadResponse(title, url, TvType.Movie, url) {
-                this.posterUrl = poster
-                this.plot = plot
-                this.year = year
+                this.posterUrl = poster; this.plot = plot; this.year = year
+                this.tags = tags; this.duration = dur; this.recommendations = recs
+                sc?.let { this.score = Score.from(it, 10) }
+                if (actors.isNotEmpty()) addActors(actors)
+                trailer?.let { addTrailer(it) }
             }
         }
+    }
+
+    private fun decodeLayers(text: String): String {
+        val extra = StringBuilder()
+        fun accept(s: String?) {
+            if (s != null && s.contains("http") && Regex("(?i)m3u8|\\.mp4|/m3u|master|iframe").containsMatchIn(s)) extra.append('\n').append(s.replace("\\/", "/"))
+        }
+        fun b64(s: String) = runCatching { String(android.util.Base64.decode(s, android.util.Base64.DEFAULT)) }.getOrNull()
+        Regex("[\"']([A-Za-z0-9+/=%_\\-]{40,})[\"']").findAll(text).take(60).forEach { m ->
+            val v = m.groupValues[1]
+            accept(b64(v)); accept(b64(v.reversed())); accept(b64(v.replace('-', '+').replace('_', '/')))
+            if (v.length % 2 == 0 && v.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' })
+                accept(runCatching { String(v.chunked(2).map { it.toInt(16).toByte() }.toByteArray()) }.getOrNull())
+            accept(v.map { c -> when (c) { in 'a'..'z' -> 'a' + (c - 'a' + 13) % 26; in 'A'..'Z' -> 'A' + (c - 'A' + 13) % 26; else -> c } }.joinToString(""))
+            if (v.contains('%')) accept(runCatching { java.net.URLDecoder.decode(v, "UTF-8") }.getOrNull())
+        }
+        Regex("String\\.fromCharCode\\(([0-9, ]{20,})\\)").findAll(text).take(20).forEach { m ->
+            accept(runCatching { m.groupValues[1].split(',').map { it.trim().toInt().toChar() }.joinToString("") }.getOrNull())
+        }
+        return if (extra.isEmpty()) text else text + extra
     }
 
     // ---- Video çözümleme (sırayla): bilinen barındırıcılar, iç içe iframe'ler (2 seviye),
@@ -307,6 +392,12 @@ class @@NAME@@Provider : MainAPI() {
             runCatching { JsUnpacker(text).unpack() }.getOrNull()?.let { text += "\n" + it.replace("\\/", "/") }
         }
 @@CRYPTO_CALL@@
+        text = decodeLayers(text)
+        // Altyazılar: .vtt / .srt adresleri
+        Regex("https?:[^\"'\\s<>\\\\]+\\.(?:vtt|srt)[^\"'\\s<>\\\\]*").findAll(text).map { it.value }.distinct().take(10).forEach { u ->
+            val lang = if (Regex("(?i)(^|[^a-z])(tr|tur|turk|turkce)([^a-z]|$)").containsMatchIn(u.substringAfterLast('/'))) "Türkçe" else "Altyazı"
+            subtitleCallback(SubtitleFile(lang, u))
+        }
         if (emitStreams(text, referer, callback)) found = true
 
         // Uzantısız HLS adayları: JW Player file/src alanları ve /m3u/, /list/, /hls/ gibi yollar
