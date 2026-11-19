@@ -108,17 +108,37 @@ class @@NAME@@Provider : MainAPI() {
         return if (html.isBlank()) null else org.jsoup.Jsoup.parse(html, mainUrl)
     }
 
+    private val junkText = Regex("(?i)^(izle|film izle|devamı|detay|incele|oynat|play|tıkla|hd|dublaj|altyazı)$")
+    private val junkImg = Regex("(?i)(logo|icon|dublaj|altyazi|flag|badge|avatar|blank|placeholder|loading|spinner|\\.svg|\\.gif)")
+
+    /** Aynı adrese giden bağlantılar arasından (poster bağlantısında yazı olmayabilir) en uygun başlık metnini bulur. */
+    private fun sameHrefText(a: Element): String? {
+        val raw = a.attr("href")
+        return a.ownerDocument()?.select("a[href]")?.filter { it.attr("href") == raw }
+            ?.map { it.text().trim() }?.filter { it.length in 3..100 && !junkText.matches(it) }?.maxByOrNull { it.length }
+    }
+
+    /** Son çare başlık: adres sonundaki slug'dan ("odyssey-izle" → "Odyssey"). Geçerli adresli kart asla düşmez. */
+    private fun slugTitle(href: String): String? {
+        val slug = href.trimEnd('/').substringAfterLast('/').substringBefore('?').removeSuffix(".html")
+        val t = slug.replace(Regex("(?i)-(izle|full|hd|film|filmi|izle-hd)$"), "").replace('-', ' ').trim()
+        return t.takeIf { it.length >= 2 }?.replaceFirstChar { it.uppercase() }
+    }
+
     private fun Element.toSearchResult(): SearchResponse? {
         val anchor = if (tagName() == "a") this else selectFirst("a") ?: return null
         val title = (@@TITLE_EXPR@@)?.trim()?.takeIf { it.isNotBlank() }
+            ?: sameHrefText(anchor)
             ?: selectFirst("img")?.attr("alt")?.trim()?.takeIf { it.isNotBlank() }
             ?: anchor.attr("title").trim().takeIf { it.isNotBlank() }
+            ?: slugTitle(anchor.attr("href"))
             ?: return null
         val href = fixUrlNull(anchor.attr("href")) ?: return null
-        val img = selectFirst("img")
+        val img = select("img").firstOrNull { im -> !junkImg.containsMatchIn(im.attr("data-src") + im.attr("data-original") + im.attr("src")) } ?: selectFirst("img")
         val poster = fixUrlNull(
-            img?.attr(posterAttr)?.takeIf { it.isNotBlank() && !it.startsWith("data:") }
-                ?: img?.attr("data-src")?.takeIf { it.isNotBlank() }
+            listOf("data-src", "data-original", "data-lazy-src", "data-lazy", posterAttr, "src")
+                .mapNotNull { k -> img?.attr(k)?.trim()?.takeIf { it.isNotBlank() && !it.startsWith("data:") && !junkImg.containsMatchIn(it) } }
+                .firstOrNull()
                 ?: img?.attr("src")
         )
         return newMovieSearchResponse(title, href, TvType.Movie) {

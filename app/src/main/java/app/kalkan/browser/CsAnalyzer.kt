@@ -11,6 +11,9 @@ import org.json.JSONObject
  * analizler birleşir. Dışa aktarırken Provider.kt'deki seçiciler bu bilgilerle dolar.
  */
 object CsAnalyzer {
+    /** Aynı çözümleyici, belge ve konum dışarıdan verilerek çalıştırılabilir biçimde (ham HTML analizi için). */
+    val JS_FN: String get() = JS.trim().removeSuffix("()").replaceFirst("(function(){", "(function(document,location){")
+
 
     /** Sayfada çalışan analiz betiği. Bir nesne döndürür (evaluateJavascript JSON'a çevirir). */
     val JS = """

@@ -182,6 +182,56 @@ return JSON.stringify({ok:1});
     private const val CARD_CHECK_JS = "(function(sel){try{var els=document.querySelectorAll(sel),n=0,good=0;for(var i=0;i<els.length&&i<60;i++){var e=els[i];n++;var hs={};var as=e.tagName==='A'?[e]:e.querySelectorAll('a[href]');Array.prototype.forEach.call(as,function(a){hs[a.href]=1;});if((Object.keys(hs).length===1&&e.querySelector('img'))||(e.tagName==='A'&&e.querySelector('img')))good++;}return JSON.stringify({n:n,good:good});}catch(e){return JSON.stringify({n:0,good:0});}})"
     private const val EP_CHECK_JS = "(function(sel){try{var re=/(\\d+\\s*\\.?\\s*(b[öo]l[üu]m|sezon|episode|season|ep)\\b|\\b(b[öo]l[üu]m|episode|ep|sezon|season)[\\s-]*\\d+|\\d+\\s*x\\s*\\d+)/i;var els=document.querySelectorAll(sel),n=0,good=0;for(var i=0;i<els.length&&i<80;i++){n++;if(re.test((els[i].textContent||'')+' '+(els[i].getAttribute('href')||'')))good++;}return JSON.stringify({n:n,good:good});}catch(e){return JSON.stringify({n:0,good:0});}})"
 
+
+    /** Eklentinin göreceği ham HTML'i (JavaScript çalışmadan) sayfa içinden çekip aynı çözümleyiciyle inceler. */
+    private fun rawJs(url: String): String {
+        val card = CARD_CHECK_JS.replace("(function(sel){", "(function(sel,document){")
+        val ep = EP_CHECK_JS.replace("(function(sel){", "(function(sel,document){")
+        return "(function(u){window.__raw=null;try{fetch(u,{credentials:'include',headers:{'Accept-Language':'tr-TR,tr;q=0.9'}}).then(function(r){return r.text();}).then(function(t){try{" +
+            "var d=new DOMParser().parseFromString(t,'text/html');var b=d.createElement('base');b.href=u;d.head.insertBefore(b,d.head.firstChild);" +
+            "var res=" + CsAnalyzer.JS_FN + "(d,new URL(u));" +
+            "var cc=null,ec=null;try{if(res&&res.list&&res.list.card)cc=JSON.parse(" + card + "(res.list.card,d));if(res&&res.detail&&res.detail.episodes)ec=JSON.parse(" + ep + "(res.detail.episodes,d));}catch(e){}" +
+            "window.__raw=JSON.stringify({len:t.length,res:res,cc:cc,ec:ec});}catch(e){window.__raw=JSON.stringify({err:String(e)});}}).catch(function(e){window.__raw=JSON.stringify({err:'fetch '+e});});}catch(e){window.__raw=JSON.stringify({err:String(e)});}})(" +
+            JSONObject.quote(url) + ")"
+    }
+
+    /** Önce sayfa görüldüğü gibi (JS çalışmış), sonra eklentinin göreceği gibi (ham HTML) çözümler; ham sonuç esas alınır. */
+    private fun analyzeBoth(wv: WebView, host: String, url: String, home: Boolean, cb: () -> Unit) {
+        analyze(wv, host) {
+            val rendered = CsHints.load(host).optJSONObject("list")
+            val renderedCount = rendered?.optInt("count") ?: 0
+            wv.evaluateJavascript(rawJs(url), null)
+            var tries = 0
+            fun poll() {
+                evalJson(wv, "(function(){return window.__raw||null;})()") { o ->
+                    if (o == null) {
+                        if (tries++ < 40) H.postDelayed({ poll() }, 300)
+                        else { CsHints.set(host, "misc", "rawFail", true); cb() }
+                        return@evalJson
+                    }
+                    val res = o.optJSONObject("res")
+                    if (o.optString("err").isNotEmpty() || res == null || res.has("error")) {
+                        CsHints.set(host, "misc", "rawFail", true); cb(); return@evalJson
+                    }
+                    val rawList = res.optJSONObject("list")
+                    if (home && renderedCount >= 3 && (rawList == null || rawList.optInt("count") * 3 < renderedCount))
+                        CsHints.set(host, "misc", "jsRendered", true)
+                    CsHints.merge(host, res)
+                    o.optJSONObject("cc")?.let { c ->
+                        val n = c.optInt("n")
+                        CsHints.set(host, "list", "bad", n > 0 && c.optInt("good") < n * 0.6)
+                    }
+                    o.optJSONObject("ec")?.let { c ->
+                        val n = c.optInt("n")
+                        CsHints.set(host, "detail", "epBad", n > 0 && c.optInt("good") < n * 0.6)
+                    }
+                    cb()
+                }
+            }
+            H.postDelayed({ poll() }, 500)
+        }
+    }
+
     private fun hasSane(l: JSONObject?): Boolean = l != null && l.optInt("matches") in 3..400
 
     /** Satırları ipuçlarından hesaplar. */
@@ -194,7 +244,7 @@ return JSON.stringify({ok:1});
         if (l == null) set("home", St.AUTO, "Kart seçici bulunamadı. Eklenti çalışma anında görselli film bağlantılarını kendisi bulacak.")
         else if (l.optBoolean("bad")) set("home", St.AUTO, "Seçici (${l.optString("card")}) tek kart yerine kapsayıcı seçiyor. Yedek kart bulucu devrede.")
         else if (!hasSane(l)) set("home", St.AUTO, "${l.optInt("count")} kart ama seçici güvenilmez (${l.optString("card")}). Yedek kart bulucu devrede.")
-        else set("home", St.OK, "${l.optInt("count")} kart · ${l.optString("card")}")
+        else set("home", St.OK, "${l.optInt("count")} kart · ${l.optString("card")}" + sample(l))
         if (l == null) set("poster", St.WAIT, "")
         else if (l.optString("posterAttr") == "src") set("poster", St.AUTO, "Afişler gecikmeli yükleniyor olabilir. data-src → data-original → src sırası denenecek.")
         else set("poster", St.OK, "Afiş alanı: ${l.optString("posterAttr")}")
@@ -241,8 +291,16 @@ return JSON.stringify({ok:1});
         if (m?.optBoolean("cloudflare") == true) { notes += "Cloudflare koruması var → CloudflareKiller otomatik devrede"; st = St.AUTO }
         if (m != null && m.optString("router").isNotEmpty()) { notes += "İçerik JSON uç noktasından da geliyor (?${m.optString("router")}) → yedek olarak kullanılacak"; st = St.AUTO }
         if (m != null && m.optString("xrw").isNotEmpty()) notes += "Site JSON isteklerinde X-Requested-With: ${m.optString("xrw")} bekliyor → eklenti aynısını gönderecek"
+        if (m?.optBoolean("jsRendered") == true) { notes += "Kartlar JavaScript ile sonradan oluşuyor; eklentinin aldığı ham HTML'de yok → JSON/router yedeği ve WebView denenecek"; st = St.WARN }
+        if (m?.optBoolean("rawFail") == true) { notes += "Ham HTML okunamadı (engel olabilir); seçiciler görünür sayfadan alındı"; if (st == St.OK) st = St.AUTO }
         if (m?.optBoolean("unreachable") == true) { notes += "Siteye telefondan ulaşılamadı"; st = St.WARN }
         set("net", st, notes.joinToString("\n").ifEmpty { "Engel yok, düz istekler yeterli." })
+    }
+
+    private fun sample(l: JSONObject): String {
+        val t = l.optJSONArray("titles") ?: return ""
+        val names = (0 until minOf(3, t.length())).map { t.optString(it).take(28) }.filter { it.isNotBlank() }
+        return if (names.isEmpty()) "" else "\nörnek: " + names.joinToString(" · ")
     }
 
     fun score(rows: List<AuditRow>): Int {
@@ -389,7 +447,7 @@ return JSON.stringify({ok:1});
             if (ep.isEmpty()) { videoStage(); return }
             begin("player", "İlk bölüm açılıyor…")
             load(wv, ep, 2500, 22000) {
-                analyze(wv, host) { scanned.add("episode"); refresh(); videoStage() }
+                analyzeBoth(wv, host, ep, false) { scanned.add("episode"); refresh(); videoStage() }
             }
         }
 
@@ -400,32 +458,16 @@ return JSON.stringify({ok:1});
             if (link.isEmpty()) { refresh(); videoStage(); return }
             begin("detail", "İlk film/dizi sayfası açılıyor…")
             load(wv, link, 2500, 22000) {
-                analyze(wv, host) {
-                    scanned.add("detail")
-                    val es = CsHints.load(host).optJSONObject("detail")?.optString("episodes").orEmpty()
-                    if (es.isEmpty()) { refresh(); episodeStage() }
-                    else evalJson(wv, EP_CHECK_JS + "(" + JSONObject.quote(es) + ")") { o ->
-                        val n = o?.optInt("n") ?: 0
-                        CsHints.set(host, "detail", "epBad", n > 0 && (o?.optInt("good") ?: 0) < n * 0.6)
-                        refresh(); episodeStage()
-                    }
-                }
+                analyzeBoth(wv, host, link, false) { scanned.add("detail"); refresh(); episodeStage() }
             }
         }
 
         // ---- 1) ana sayfa
+        CsHints.set(host, "misc", "jsRendered", false)
+        CsHints.set(host, "misc", "rawFail", false)
         begin("home", "Ana sayfa açılıyor…")
         load(wv, "$origin/", 2200, 25000) {
-            analyze(wv, host) {
-                scanned.add("home")
-                val card = CsHints.load(host).optJSONObject("list")?.optString("card").orEmpty()
-                if (card.isEmpty()) { refresh(); detailStage() }
-                else evalJson(wv, CARD_CHECK_JS + "(" + JSONObject.quote(card) + ")") { o ->
-                    val n = o?.optInt("n") ?: 0
-                    CsHints.set(host, "list", "bad", n > 0 && (o?.optInt("good") ?: 0) < n * 0.6)
-                    refresh(); detailStage()
-                }
-            }
+            analyzeBoth(wv, host, "$origin/", true) { scanned.add("home"); refresh(); detailStage() }
         }
     }
 }
