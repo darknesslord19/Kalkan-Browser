@@ -367,21 +367,26 @@ class @@NAME@@Provider : MainAPI() {
             for (var k in this) { try { var v = this[k]; if (typeof v === 'string' && v.indexOf('http') === 0 && /m3u8|\.txt|master|\/hls\/|\.mp4|\/m3u/.test(v) && __l.indexOf(v) === -1) __l.push(v); } catch(e){} }
             __l.join('|||') + '|||' + __jw.join('|||');
         """.trimIndent()
-        val cx = org.mozilla.javascript.Context.enter()
-        cx.optimizationLevel = -1
+        // Rhino derleme sırasında yok; çalışma anında uygulamadan yansıma ile kullanılır
+        val ctxCls = runCatching { Class.forName("org.mozilla.javascript.Context") }.getOrNull() ?: return emptyList()
+        val scopeCls = Class.forName("org.mozilla.javascript.Scriptable")
+        val cx = ctxCls.getMethod("enter").invoke(null)
+        val evalM = ctxCls.getMethod("evaluateString", scopeCls, String::class.java, String::class.java, Int::class.javaPrimitiveType, Any::class.java)
+        fun ev(scope: Any, code: String, n: String): Any? = evalM.invoke(cx, scope, code, n, 1, null)
         return try {
-            val scope = cx.initStandardObjects()
-            cx.evaluateString(scope, polyfill, "polyfill", 1, null)
+            ctxCls.getMethod("setOptimizationLevel", Int::class.javaPrimitiveType).invoke(cx, -1)
+            val scope = ctxCls.getMethod("initStandardObjects").invoke(cx)!!
+            ev(scope, polyfill, "polyfill")
             doc.select("script").forEach { s ->
                 val code = s.data().trim()
                 if (code.isNotBlank() && !Regex("google|analytics|cast_sender|ld\\+json|gtag").containsMatchIn(code.take(300))) {
-                    try { cx.evaluateString(scope, code, "script", 1, null) } catch (_: Throwable) {}
+                    try { ev(scope, code, "script") } catch (_: Throwable) {}
                 }
             }
-            val res = cx.evaluateString(scope, collector, "collector", 1, null)?.toString().orEmpty().replace("\\/", "/")
+            val res = ev(scope, collector, "collector")?.toString().orEmpty().replace("\\/", "/")
             Regex("https?://[^\\s\"'<>\\\\|]+").findAll(res).map { it.value }
                 .filter { Regex("(?i)m3u8|\\.txt|master|/hls/|\\.mp4|/m3u").containsMatchIn(it) && !notMedia.containsMatchIn(it) }.distinct().toList()
-        } catch (_: Throwable) { emptyList() } finally { org.mozilla.javascript.Context.exit() }
+        } catch (_: Throwable) { emptyList() } finally { runCatching { ctxCls.getMethod("exit").invoke(null) } }
     }
 
     /** Oynatıcı sayfasındaki "hash" değerini /video/ah/ benzeri uca POST edip dönen akış adreslerini toplar. */
