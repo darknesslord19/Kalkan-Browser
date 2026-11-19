@@ -407,18 +407,28 @@ return JSON.stringify({ok:1});
             }
         }
 
-        // ---- video akışı: oynatıcı sayfasını WebView'da açıp gerçek m3u8/mp4 isteğini yakalar
+        // ---- video akışı: oynatıcıyı (iframe ya da film sayfasının kendisi) WebView'da açıp gerçek akış isteklerini yakalar
         fun videoStage() {
             val pl = CsHints.load(host).optJSONObject("player")
-            val frame = pl?.optJSONArray("iframes")?.optString(0).orEmpty()
+            val iframeUrl = pl?.optJSONArray("iframes")?.optString(0).orEmpty()
+            val link = CsHints.load(host).optJSONObject("list")?.optJSONArray("links")?.optString(0).orEmpty()
+            val frame = if (iframeUrl.startsWith("http")) iframeUrl else link
             if (frame.isEmpty() || !frame.startsWith("http")) { scanned.add("video"); refresh(); searchStage(); return }
             begin("video", "Oynatıcı açılıyor, video isteği bekleniyor…")
             val hit = java.util.concurrent.atomic.AtomicReference<String?>(null)
+            val cands = java.util.concurrent.ConcurrentLinkedQueue<String>()
             val re = Regex("(?i)\\.(m3u8|mp4)(\\?|$)|/master\\.txt|/playlist\\.m3u8")
+            val pathRe = Regex("(?i)/(m3u8?|hls|list|playlist|stream|manifest|master|process)/")
+            val originHost = Uri.parse(origin).host.orEmpty().removePrefix("www.")
             wv.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: android.webkit.WebResourceRequest): android.webkit.WebResourceResponse? {
                     val u = request.url.toString()
                     if (hit.get() == null && re.containsMatchIn(u)) hit.set(u)
+                    else {
+                        val h = request.url.host.orEmpty()
+                        val path = request.url.path.orEmpty()
+                        if (!h.removePrefix("www.").endsWith(originHost) && path.length > 40 && pathRe.containsMatchIn(path) && cands.size < 12) cands.add(u)
+                    }
                     return null
                 }
                 override fun onPageFinished(view: WebView, u: String?) {
@@ -426,15 +436,44 @@ return JSON.stringify({ok:1});
                 }
             }
             var waited = 0
-            fun wait() {
-                if (hit.get() != null || waited >= 14000) {
-                    val u = hit.get()
-                    if (u != null) {
-                        val kind = if (u.contains(".mp4", true)) "mp4" else "m3u8"
-                        CsHints.set(host, "player", "stream", Uri.parse(u).host + " · " + kind)
+            fun conclude() {
+                val u = hit.get()
+                if (u != null) {
+                    val kind = if (u.contains(".mp4", true)) "mp4" else "m3u8"
+                    CsHints.set(host, "player", "stream", Uri.parse(u).host + " · " + kind)
+                    scanned.add("video"); refresh(); searchStage(); return
+                }
+                val list = cands.toList()
+                if (list.isEmpty()) { scanned.add("video"); refresh(); searchStage(); return }
+                row("video").note = "Uzantısız akış adayları doğrulanıyor…"; onUpdate()
+                bg({
+                    var good: String? = null
+                    val segs = LinkedHashMap<String, LinkedHashSet<String>>()
+                    for (c in list.take(6)) {
+                        try {
+                            val r = ApiFinder.fetchText(c, ua, "$origin/", 1 shl 16)
+                            if (r.first == 200 && r.second.second.trimStart().startsWith("#EXTM3U")) {
+                                good = good ?: c
+                                val uri = Uri.parse(c)
+                                val seg = uri.pathSegments.firstOrNull()
+                                if (seg != null) segs.getOrPut(uri.host.orEmpty()) { LinkedHashSet() }.add(seg)
+                            }
+                        } catch (_: Exception) { }
                     }
-                    scanned.add("video"); refresh(); searchStage()
-                } else { waited += 500; H.postDelayed({ wait() }, 500) }
+                    // oynatma listesi doğrulandıysa, listeyi veren sunucudaki tüm aday yolları akış kalıbı yap
+                    if (good != null) {
+                        val gh = Uri.parse(good).host.orEmpty()
+                        val all = LinkedHashSet<String>()
+                        for (c in list) { val uu = Uri.parse(c); if (uu.host == gh) uu.pathSegments.firstOrNull()?.let { all.add(Regex.escape(it)) } }
+                        val re2 = gh.replace(".", "\\.") + "/(?:" + all.joinToString("|") + ")/"
+                        CsHints.set(host, "player", "streamRe", re2)
+                        CsHints.set(host, "player", "stream", gh + " · m3u8 (uzantısız)")
+                    }
+                }, { scanned.add("video"); refresh(); searchStage() })
+            }
+            fun wait() {
+                if (hit.get() != null || waited >= 15000) conclude()
+                else { waited += 500; H.postDelayed({ wait() }, 500) }
             }
             wv.loadUrl(frame, mapOf("Referer" to "$origin/"))
             H.postDelayed({ wait() }, 1500)

@@ -160,7 +160,7 @@ private fun MainActivity.exportCloudStreamForm(t: MainActivity.Tab, hints: JSONO
     val eps = collectApis(t)
 
     val nameF = field("Eklenti adı (ör. OrnekSite)", CsGen.className(host))
-    val siteF = field("Görünen ad", t.title.substringBefore(" - ").substringBefore(" | ").trim().take(40).ifBlank { CsGen.className(host) })
+    val siteF = field("Görünen ad", CsGen.className(host))
     val authorF = field("Yazar", Store.str("cs_author", ""))
     val langF = field("Dil kodu (tr, en…)", Store.str("cs_lang", "tr"))
     val descF = field("Açıklama", "", multi = false)
@@ -310,10 +310,11 @@ private fun MainActivity.buildCsZip(
                         }
                     }
                 }
+                tokens["@@STREAM_RE@@"] = CsGen.ks(hints.optJSONObject("player")?.optString("streamRe").orEmpty())
                 tokens["@@XRW@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("xrw").orEmpty().ifEmpty { "XMLHttpRequest" })
                 tokens["@@ROUTER@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("router").orEmpty())
                 tokens["@@SEARCH_CALL@@"] = searchCall
-                    ?: ("val url = " + tokens["@@SEARCH_URL@@"] + "\n        val response = app.get(url, referer = mainUrl)")
+                    ?: ("val url = " + tokens["@@SEARCH_URL@@"] + "\n        val response = fetch(url)")
                 tokens["@@CRYPTO_PASS@@"] = report.passes.joinToString(", ") { "\"${CsGen.ks(it)}\"" }
 
                 fun tpl(file: String): String {

@@ -86,6 +86,21 @@ class @@NAME@@Provider : MainAPI() {
     private val xhrHeaders: List<Map<String, String>> =
         listOf(emptyMap<String, String>()) + listOf(xrwValue, "XMLHttpRequest", "fetch").distinct().map { mapOf("X-Requested-With" to it) }
     private val streamRegex = Regex("(?i)\\.(m3u8|mp4)(\\?|\\$)|/master\\.txt")
+    private val streamHint = "@@STREAM_RE@@"
+    private val sniffRegex = Regex("(?i)https?://[^\\s\"'<>\\\\]+/(?:m3u8?|hls|playlist|manifest|master|list)/[^\\s\"'<>\\\\]{20,}" + (if (streamHint.isNotBlank()) "|(?:https?://)?" + streamHint + "[^\\s\"'<>\\\\]*" else ""))
+    private val watchRegex = Regex(streamRegex.pattern + (if (streamHint.isNotBlank()) "|" + streamHint else ""))
+    private val notMedia = Regex("(?i)\\.(js|css|png|jpe?g|webp|gif|svg|vtt|srt|json|woff2?)(\\?|\\$)")
+
+    /** Uzantısız HLS (JW Player vb.): adresi indirip içeriği (#EXTM3U) doğrular, öyleyse oynatma listesi olarak yayar. */
+    private suspend fun sniffHls(u: String, referer: String, callback: (ExtractorLink) -> Unit): Boolean {
+        val origin = try { java.net.URI(referer).let { it.scheme + "://" + it.host } } catch (_: Exception) { mainUrl }
+        val hdr = mapOf("Referer" to referer, "Origin" to origin)
+        val body = runCatching { app.get(u, referer = referer, headers = hdr).text }.getOrNull() ?: return false
+        if (!body.trimStart().startsWith("#EXTM3U")) return false
+        M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
+        return true
+    }
+
     private val routerParam = "@@ROUTER@@"
     private val epRegex = Regex("(?i)(\\d+\\s*\\.?\\s*(bölüm|bolum|sezon|episode|season|ep)\\b|\\b(bölüm|bolum|episode|ep|sezon|season)[\\s-]*\\d+|\\d+\\s*x\\s*\\d+)")
 
@@ -265,6 +280,13 @@ class @@NAME@@Provider : MainAPI() {
         val page = fetch(data)
         var ok = scanSource(page.text, page.document, data, 0, subtitleCallback, callback)
         if (!ok) routerDoc(data)?.let { ok = scanSource(it.outerHtml(), it, data, 0, subtitleCallback, callback) }
+        if (!ok) {
+            // Son çare: sayfayı gerçek bir WebView'da oynatıp ağdaki akış isteğini yakala
+            val got = runCatching {
+                app.get(data, referer = mainUrl, interceptor = com.lagradost.cloudstream3.network.WebViewResolver(watchRegex)).url
+            }.getOrNull()
+            if (got != null && watchRegex.containsMatchIn(got) && (emitStreams(got, data, callback) || sniffHls(got, data, callback))) ok = true
+        }
         return ok
     }
 
@@ -285,6 +307,15 @@ class @@NAME@@Provider : MainAPI() {
         }
 @@CRYPTO_CALL@@
         if (emitStreams(text, referer, callback)) found = true
+
+        // Uzantısız HLS adayları: JW Player file/src alanları ve /m3u/, /list/, /hls/ gibi yollar
+        if (!found) {
+            val jw = Regex("[\"']?(?:file|src|source)[\"']?\\s*:\\s*[\"'](https?://[^\"']+)[\"']").findAll(text).map { it.groupValues[1] }
+            val cands = (sniffRegex.findAll(text).map { it.value } + jw).distinct()
+                .map { if (it.startsWith("http")) it else "https://$it" }
+                .filter { !notMedia.containsMatchIn(it) }.take(8).toList()
+            for (c in cands) if (sniffHls(c, referer, callback)) { found = true; break }
+        }
 
         // base64 içinde saklanan linkler
         Regex("[\"']([A-Za-z0-9+/=]{40,})[\"']").findAll(text).forEach { m ->
@@ -309,9 +340,9 @@ class @@NAME@@Provider : MainAPI() {
                 // (karmaşık/gizlenmiş oynatıcı betiklerini kendimiz çözmek yerine tarayıcıya çözdürür)
                 if (depth == 0 && !found) {
                     val got = runCatching {
-                        app.get(frame, referer = referer, interceptor = com.lagradost.cloudstream3.network.WebViewResolver(streamRegex)).url
+                        app.get(frame, referer = referer, interceptor = com.lagradost.cloudstream3.network.WebViewResolver(watchRegex)).url
                     }.getOrNull()
-                    if (got != null && streamRegex.containsMatchIn(got) && emitStreams(got, frame, callback)) found = true
+                    if (got != null && watchRegex.containsMatchIn(got) && (emitStreams(got, frame, callback) || sniffHls(got, frame, callback))) found = true
                 }
             }
         }
