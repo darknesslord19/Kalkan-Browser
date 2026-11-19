@@ -14,7 +14,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * @@SITE@@ için "API modu" sağlayıcısı (Kalkan Tarayıcı @@DATE@@).
+ * @@SITE@@ için "API modu" sağlayıcısı (Darkness Tarayıcı @@DATE@@).
  * Site HTML kazımak yerine TMDB biçimli bir JSON uçtan beslendiği için katalog, arama ve detay
  * doğrudan JSON'dan okunur: @@TMDB_BASE@@
  * Video akışı sitenin kendi izleme sayfasından WebView ile yakalanır (siteye özel şifreli uçlar

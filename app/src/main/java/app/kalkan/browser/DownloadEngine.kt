@@ -423,7 +423,7 @@ class DownloadService : Service() {
             )
             return NotificationCompat.Builder(ctx, Notif.CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_download)
-                .setContentTitle("Kalkan indiriyor")
+                .setContentTitle("Darkness indiriyor")
                 .setContentText(DownloadEngine.summary())
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)

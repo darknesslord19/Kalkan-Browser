@@ -198,7 +198,7 @@ private fun MainActivity.exportCloudStreamForm(t: MainActivity.Tab, hints: JSONO
                         t, origin, host, eps,
                         CsGen.sanitizeClass(nameF.text.toString().trim().ifEmpty { CsGen.className(host) }),
                         siteF.text.toString().trim().ifEmpty { host },
-                        authorF.text.toString().trim().ifEmpty { "Kalkan" },
+                        authorF.text.toString().trim().ifEmpty { "Darkness" },
                         langF.text.toString().trim().lowercase(Locale.US).take(5).ifEmpty { "tr" },
                         descF.text.toString().trim().ifEmpty { "$host için CloudStream eklentisi" },
                         sel
@@ -308,7 +308,7 @@ private fun MainActivity.buildCsZip(
                 if (searchNote.startsWith("uç bulunamadı")) {
                     if (pat0.startsWith("/") && pat0.contains("%s")) {
                         tokens["@@SEARCH_URL@@"] = "\"\$mainUrl${CsGen.ks(pat0).replace("%s", encExpr)}\""
-                        tokens["@@SEARCH_NOTE@@"] = "Kalkan taramasında sitede gerçek arama yapılarak bulundu ($pat0)" + if (sf?.optBoolean("verified") == true) " · doğrulandı" else ""
+                        tokens["@@SEARCH_NOTE@@"] = "Darkness taramasında sitede gerçek arama yapılarak bulundu ($pat0)" + if (sf?.optBoolean("verified") == true) " · doğrulandı" else ""
                     } else if (sf != null && sf.optString("param").isNotEmpty()) {
                         val param = sf.optString("param")
                         val path = sf.optString("path").ifBlank { "/" }
@@ -371,7 +371,7 @@ private fun MainActivity.buildCsZip(
                 val used = HashSet<String>()
                 val ek = StringBuilder()
                 ek.append("package $pkg\n\n")
-                ek.append("/**\n * Kalkan Tarayıcı'nın ${host} üzerinde bulduğu API uçları ($date).\n")
+                ek.append("/**\n * Darkness Tarayıcı'nın ${host} üzerinde bulduğu API uçları ($date).\n")
                 ek.append(" * Aynı sitedeki uçlar mainUrl'e göre göreli yazılmıştır: \"\$mainUrl\" + SABIT\n */\n")
                 ek.append("@Suppress(\"unused\")\nobject ${name}Endpoints {\n")
                 for (e in apiEps.take(200)) {
@@ -392,7 +392,7 @@ private fun MainActivity.buildCsZip(
                 ek.append("}\n")
 
                 // ENDPOINTS.md
-                val md = StringBuilder("# $site — bulunan uçlar\n\nKalkan Tarayıcı · $date · $origin\n\n")
+                val md = StringBuilder("# $site — bulunan uçlar\n\nDarkness Tarayıcı · $date · $origin\n\n")
                 md.append("| Yöntem | Adres | Kaynak | Durum | Not |\n|---|---|---|---|---|\n")
                 for (e in eps.sortedWith(compareBy({ !it.apiLike }, { it.group }, { it.url }))) {
                     fun cell(s: String) = s.replace("|", "\\|").replace("\n", " ")
@@ -432,7 +432,7 @@ private fun MainActivity.buildCsZip(
                     CsBrain.refFiles(this, host, origin)?.let { ref ->
                         files.keys.removeAll { it.startsWith("$root/$name/src/main/") || it == "$root/$name/build.gradle.kts" }
                         for ((rel, content) in ref) files["$root/$name/$rel"] = content
-                        files["$root/$name/ENDPOINTS.md"] = "Bu eklenti Kalkan bilgi bankasındaki çalışan referans kaynaktan üretildi ($host).\n"
+                        files["$root/$name/ENDPOINTS.md"] = "Bu eklenti Darkness bilgi bankasındaki çalışan referans kaynaktan üretildi ($host).\n"
                     }
                 } catch (_: Exception) { }
                 val bos = ByteArrayOutputStream()
@@ -455,7 +455,7 @@ private fun MainActivity.buildCsZip(
                 MaterialAlertDialogBuilder(this)
                     .setTitle("CloudStream iskeleti")
                     .setMessage(msg + if (msg.startsWith("Kaydedildi"))
-                        "\n\n\u201CDerle ve .cs3 indir\u201D ile Kalkan ZIP'i GitHub'a yükleyip derletir ve .cs3 dosyasını otomatik indirir."
+                        "\n\n\u201CDerle ve .cs3 indir\u201D ile Darkness ZIP'i GitHub'a yükleyip derletir ve .cs3 dosyasını otomatik indirir."
                     else "")
                     .setPositiveButton("Tamam", null)
                     .setNeutralButton("İndirilenler") { _, _ -> openSystemDownloads() }

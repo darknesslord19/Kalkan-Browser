@@ -312,7 +312,7 @@ internal fun MainActivity.showTools() {
     tile(media, R.drawable.ic_fullscreen, "Otomatik PiP", on = { Store.bool("auto_pip", true) }, keepOpen = true,
         action = toggle("auto_pip", true, "Tam ekran videodan çıkınca küçük pencerede oynar", "Otomatik PiP kapalı"))
     tile(media, R.drawable.ic_download, "Dahili indirici", on = { Store.bool("internal_dl", true) }, keepOpen = true,
-        action = toggle("internal_dl", true, "Dosyalar Kalkan indirme yöneticisiyle iner", "Dosyalar Android indiricisiyle iner"))
+        action = toggle("internal_dl", true, "Dosyalar Darkness indirme yöneticisiyle iner", "Dosyalar Android indiricisiyle iner"))
 
     val priv = section("Gizlilik")
     tile(priv, R.drawable.ic_globe, "Proxy / Tor", on = { Net.active }, sub = { if (Net.active) Net.mode.uppercase() else "Kapalı" }) { chooseProxy() }
@@ -547,7 +547,7 @@ internal fun MainActivity.showConsole() {
     val d = sheet(0.9f)
     val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-    head.addView(sheetHeader("Konsol", t.pageHost.ifEmpty { "Kalkan" }), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    head.addView(sheetHeader("Konsol", t.pageHost.ifEmpty { "Darkness" }), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
     var lines: List<MainActivity.ConsoleLine> = emptyList()
     head.addView(iconButton(R.drawable.ic_copy, "Tümünü kopyala") {
         copy(lines.joinToString("\n") { "[${it.level}] ${it.text}" + if (it.src.isNotEmpty()) "  (${it.src})" else "" })
@@ -771,7 +771,7 @@ private fun MainActivity.netDetails(t: MainActivity.Tab, n: NetRow) {
     val sb = StringBuilder()
     sb.append(n.url).append("\n\n")
     sb.append("Yöntem: ${m?.method ?: "GET"}\n")
-    sb.append("Durum: ${if (n.blocked) "Kalkan tarafından engellendi" else if (n.status > 0) n.status.toString() else "bilinmiyor (farklı kaynak)"}\n")
+    sb.append("Durum: ${if (n.blocked) "Darkness tarafından engellendi" else if (n.status > 0) n.status.toString() else "bilinmiyor (farklı kaynak)"}\n")
     sb.append("Tür: ${n.type}\n")
     if (n.proto.isNotEmpty()) sb.append("Protokol: ${n.proto}\n")
     if (!n.blocked) {
@@ -1198,7 +1198,7 @@ internal fun MainActivity.chooseProxy() {
                     if (!orbot) {
                         MaterialAlertDialogBuilder(this)
                             .setTitle("Orbot gerekli")
-                            .setMessage("Tor ağı için Orbot uygulamasını kurup açman gerekiyor. Kalkan, Orbot'un 127.0.0.1:9050 SOCKS adresini kullanır.")
+                            .setMessage("Tor ağı için Orbot uygulamasını kurup açman gerekiyor. Darkness, Orbot'un 127.0.0.1:9050 SOCKS adresini kullanır.")
                             .setPositiveButton("Orbot'u indir") { _, _ ->
                                 try {
                                     startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("market://details?id=org.torproject.android")))
@@ -1270,7 +1270,7 @@ internal fun MainActivity.chooseLock() {
             }
             Store.prefs.edit().putString("lock_mode", modes[w]).apply()
             toast(when (modes[w]) {
-                "app" -> "Kalkan'a her dönüşünde kilit sorulacak"
+                "app" -> "Darkness'a her dönüşünde kilit sorulacak"
                 "incognito" -> "Gizli sekmelere dönüşte kilit sorulacak"
                 else -> "Uygulama kilidi kapalı"
             })
@@ -1293,7 +1293,7 @@ internal fun MainActivity.showLock() {
         setImageResource(R.drawable.ic_shield)
     }, LinearLayout.LayoutParams(dp(64), dp(64)))
     o.addView(TextView(this).apply {
-        text = if (lockMode() == "incognito") "Gizli sekmeler kilitli" else "Kalkan kilitli"
+        text = if (lockMode() == "incognito") "Gizli sekmeler kilitli" else "Darkness kilitli"
         textSize = 20f
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(textColor())
@@ -1329,7 +1329,7 @@ private fun MainActivity.promptUnlock() {
     try {
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Kalkan kilidini aç")
+                .setTitle("Darkness kilidini aç")
                 .setSubtitle("Parmak izi veya ekran kilidi")
                 .setAllowedAuthenticators(AUTH)
                 .build()

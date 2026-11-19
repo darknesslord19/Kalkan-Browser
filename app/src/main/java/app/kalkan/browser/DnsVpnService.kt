@@ -65,7 +65,7 @@ class DnsVpnService : VpnService() {
     private fun startTunnel() {
         if (tun != null) return
         val b = Builder()
-            .setSession("Kalkan Koruması")
+            .setSession("Darkness Koruması")
             .addAddress("10.111.222.1", 32)
             .addDnsServer(FAKE_DNS)
             .addRoute(FAKE_DNS, 32)

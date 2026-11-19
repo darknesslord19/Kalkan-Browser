@@ -1,10 +1,10 @@
-# 🛡️ Kalkan Tarayıcı
+# 🛡️ Darkness Tarayıcı
 
 Reklam engelleyicili, gizlilik odaklı Android tarayıcısı — içinde **WireGuard VPN** ve **sistem geneli reklam engelleme** ile.
 
 ## 📥 İndir
 
-**[Son sürümü indir (Releases)](../../releases/latest)** → `Kalkan-v1.0.X.apk` dosyasını telefonuna indirip kur.
+**[Son sürümü indir (Releases)](../../releases/latest)** → `Darkness-v1.0.X.apk` dosyasını telefonuna indirip kur.
 (İlk kurulumda "Bilinmeyen kaynaklardan yükleme" iznini vermen gerekir.)
 
 ## ✨ Özellikler
@@ -43,3 +43,7 @@ Elle başlatmak için: **Actions → APK Derle → Run workflow**.
 Yerelde: Android SDK + JDK 17 kurulu iken `gradle assembleRelease`.
 
 > İmzalama anahtarı (`keystore/kalkan.jks`) güncellemelerin üst üste kurulabilmesi için depoda tutuluyor. Depo herkese açıksa bu anahtarı GitHub Secrets'a taşımak daha güvenlidir.
+
+## 🛠️ Darkness eklenti üretici (bilgisayar aracı)
+`tools/darkness_uretici.py` (Windows: `tools/DARKNESS_URET.bat`) bir site adresinden (gerekirse `--har` ile) kart, kategori, sayfalama,
+arama, bölüm ve oynatıcı analizi yapıp `cs3-inbox/`'a atılmaya hazır ZIP + analiz raporu üretir.

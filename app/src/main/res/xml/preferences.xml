@@ -55,7 +55,7 @@
         <Preference
             app:key="default_browser"
             app:title="Varsayılan tarayıcı yap"
-            app:summary="Android ayarlarında Kalkan'ı seç"
+            app:summary="Android ayarlarında Darkness'ı seç"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
@@ -131,7 +131,7 @@
             app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
             app:key="internal_dl"
-            app:title="Kalkan indirme yöneticisi"
+            app:title="Darkness indirme yöneticisi"
             app:summary="Çok parçalı hızlı indirme, duraklat/devam et"
             app:defaultValue="true"
             app:iconSpaceReserved="false" />
@@ -165,7 +165,7 @@
     <PreferenceCategory app:title="Hakkında" app:iconSpaceReserved="false">
         <Preference
             app:key="about"
-            app:title="Kalkan Tarayıcı"
+            app:title="Darkness Tarayıcı"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 </PreferenceScreen>

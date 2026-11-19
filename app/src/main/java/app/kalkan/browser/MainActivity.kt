@@ -690,7 +690,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     internal fun copy(text: String) {
-        (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Kalkan", text))
+        (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Darkness", text))
         if (Build.VERSION.SDK_INT < 33) toast("Kopyalandı")
     }
 
@@ -1148,7 +1148,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val req = DownloadManager.Request(Uri.parse(url))
                 .setTitle(name)
-                .setDescription("Kalkan ile indiriliyor")
+                .setDescription("Darkness ile indiriliyor")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
             if (!mime.isNullOrEmpty()) req.setMimeType(mime)
@@ -1947,7 +1947,7 @@ class MainActivity : AppCompatActivity() {
 
     internal fun print(tab: Tab) {
         val pm = getSystemService(PRINT_SERVICE) as PrintManager
-        val name = tab.title.ifEmpty { "Kalkan sayfası" }
+        val name = tab.title.ifEmpty { "Darkness sayfası" }
         pm.print(name, tab.webView.createPrintDocumentAdapter(name), PrintAttributes.Builder().build())
     }
 
@@ -1956,7 +1956,7 @@ class MainActivity : AppCompatActivity() {
     // =====================================================================
 
     // =====================================================================
-    // Kalkan paneli
+    // Darkness paneli
     // =====================================================================
 
     internal fun showShield() {
@@ -1975,7 +1975,7 @@ class MainActivity : AppCompatActivity() {
         }
         val brand = ContextCompat.getColor(this, R.color.brand)
         val host = t?.pageHost?.takeIf { it.isNotEmpty() && it != ASSET_HOST }
-        box.addView(label("Kalkan Koruması", 20f, textColor(), true))
+        box.addView(label("Darkness Koruması", 20f, textColor(), true))
         if (host != null) box.addView(label(host, 14f, mutedColor(), top = 2))
         box.addView(label((t?.blocked ?: 0).toString(), 44f, brand, true, 12))
         box.addView(label("bu sayfada engellenen reklam ve izleyici", 14f, mutedColor()))

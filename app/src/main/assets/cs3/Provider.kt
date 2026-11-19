@@ -8,11 +8,11 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 
 /**
  * @@SITE@@ için CloudStream sağlayıcısı.
- * Kalkan Tarayıcı ile @@DATE@@ tarihinde oluşturuldu.
+ * Darkness Tarayıcı ile @@DATE@@ tarihinde oluşturuldu.
  *
- * Seçiciler Kalkan'ın sayfa analizinden dolduruldu. Analiz yapılmayan kısımlar için
+ * Seçiciler Darkness'ın sayfa analizinden dolduruldu. Analiz yapılmayan kısımlar için
  * genel yedekler kullanılır; çalışmayan bir yer olursa aşağıdaki seçici sabitlerini düzelt.
- * Kalkan'ın bulduğu uçlar: @@NAME@@Endpoints.kt ve ENDPOINTS.md
+ * Darkness'ın bulduğu uçlar: @@NAME@@Endpoints.kt ve ENDPOINTS.md
  *
  * Analiz özeti:
 @@ANALYSIS_NOTE@@
@@ -30,7 +30,7 @@ class @@NAME@@Provider : MainAPI() {
 @@MAIN_PAGES@@
     )
 
-    // ---- Seçiciler (Kalkan analizi) ----
+    // ---- Seçiciler (Darkness analizi) ----
     private val cardSelector = "@@CARD_SEL@@"
     private val posterAttr = "@@POSTER_ATTR@@"
     private val episodeSelector = "@@EPISODE_SEL@@"
@@ -116,6 +116,26 @@ class @@NAME@@Provider : MainAPI() {
             this.headers = hdr + mapOf("User-Agent" to "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36")
             this.quality = Qualities.Unknown.value
         })
+    }
+
+    /** WordPress DooPlay teması: oynatıcı seçeneklerini admin-ajax.php (doo_player_ajax) ile çözer. */
+    private suspend fun dooPlayEmbeds(d: org.jsoup.nodes.Document, pageUrl: String): List<String> {
+        val out = ArrayList<String>()
+        for (o in d.select("li.dooplay_player_option[data-post], li[data-post][data-nume][data-type]")) {
+            val nume = o.attr("data-nume")
+            if (nume.equals("trailer", true)) continue
+            val r = runCatching {
+                app.post(
+                    "$mainUrl/wp-admin/admin-ajax.php",
+                    data = mapOf("action" to "doo_player_ajax", "post" to o.attr("data-post"), "nume" to nume, "type" to o.attr("data-type")),
+                    referer = pageUrl, headers = mapOf("X-Requested-With" to "XMLHttpRequest")
+                ).text
+            }.getOrNull() ?: continue
+            val embed = Regex("\"embed_url\"\\s*:\\s*\"([^\"]+)\"").find(r)?.groupValues?.get(1)?.replace("\\/", "/") ?: continue
+            val src = if (embed.contains("<iframe", true)) Regex("src=[\"']([^\"']+)[\"']").find(embed)?.groupValues?.get(1) else embed
+            if (!src.isNullOrBlank()) out += fixUrl(src)
+        }
+        return out
     }
 
     private val routerParam = "@@ROUTER@@"
@@ -778,7 +798,7 @@ class @@NAME@@Provider : MainAPI() {
             val frames = d.select("iframe, [data-embed], [data-video], [data-player], nav.card-nav a, a.card-nav-link, button.card-nav-link, [data-url]")
                 .mapNotNull { el -> attrs.firstNotNullOfOrNull { k -> el.attr(k).takeIf { it.isNotBlank() } } }
                 .map { fixUrl(it) }.distinct()
-            for (frame in frames) {
+            for (frame in (frames + dooPlayEmbeds(d, referer)).distinct()) {
                 if (loadExtractor(frame, referer, subtitleCallback, callback)) { found = true; continue }
                 val inner = runCatching { app.get(frame, referer = referer).text }.getOrNull()
                 if (inner != null && scanSource(inner, null, frame, depth + 1, subtitleCallback, callback)) { found = true; continue }

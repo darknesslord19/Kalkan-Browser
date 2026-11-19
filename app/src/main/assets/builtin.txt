@@ -1,4 +1,4 @@
-! Kalkan yerleşik liste — çevrimdışıyken de çalışan temel reklam/izleyici kuralları
+! Darkness yerleşik liste — çevrimdışıyken de çalışan temel reklam/izleyici kuralları
 ||doubleclick.net^
 ||googlesyndication.com^
 ||googleadservices.com^

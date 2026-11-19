@@ -708,7 +708,7 @@ private fun MainActivity.exportApis(t: MainActivity.Tab, list: List<ApiEp>) {
     val host = t.pageHost.removePrefix("www.")
     val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
     fun text(): String {
-        val sb = StringBuilder("# $host API uçları (${list.size}) — Kalkan, $stamp\n")
+        val sb = StringBuilder("# $host API uçları (${list.size}) — Darkness, $stamp\n")
         list.groupBy { it.source }.forEach { (src, l) ->
             sb.append("\n## $src (${l.size})\n")
             l.sortedBy { it.url }.forEach { e ->
@@ -738,7 +738,7 @@ private fun MainActivity.exportApis(t: MainActivity.Tab, list: List<ApiEp>) {
             items.put(JSONObject().put("name", (e.method.ifEmpty { "GET" }) + " " + (Uri.parse(e.url).path ?: e.url)).put("request", req))
         }
         return JSONObject()
-            .put("info", JSONObject().put("name", "$host (Kalkan)")
+            .put("info", JSONObject().put("name", "$host (Darkness)")
                 .put("schema", "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"))
             .put("item", items).toString(2)
     }

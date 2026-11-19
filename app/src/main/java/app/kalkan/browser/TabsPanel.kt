@@ -66,7 +66,7 @@ private fun MainActivity.tabTitle(t: MainActivity.Tab): String = when {
 }
 
 private fun MainActivity.tabSubtitle(t: MainActivity.Tab): String =
-    if (isHome(t.url) || t.url.isEmpty()) "Kalkan" else displayUrl(t.url)
+    if (isHome(t.url) || t.url.isEmpty()) "Darkness" else displayUrl(t.url)
 
 private val LETTER_COLORS = intArrayOf(
     0xFFF5A524.toInt(), 0xFF3E8EF7.toInt(), 0xFF30A46C.toInt(), 0xFFE5484D.toInt(),

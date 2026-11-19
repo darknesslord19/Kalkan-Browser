@@ -5,7 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Kalkan'ın bilgi bankası (assets/cs3/kb.json): çalışan eklentilerden (ATEST, HDFilmCehennemi, Donkey ...)
+ * Darkness'ın bilgi bankası (assets/cs3/kb.json): çalışan eklentilerden (ATEST, HDFilmCehennemi, Donkey ...)
  * öğrenilen site profilleri (kategori listesi, arama kalıbı, X-Requested-With, TMDB ucu, oynatıcı ailesi, AES anahtarları)
  * ve oynatıcı aileleri (bePlayer, ContentX, getVideo, Rapid/CloseLoad ...).
  * Tarama ve üretim sırasında bilinen siteler için eksik bilgiler buradan tamamlanır.

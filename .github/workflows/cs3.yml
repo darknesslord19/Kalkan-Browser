@@ -1,6 +1,6 @@
 name: CS3 Derle
 
-# cs3-inbox/ klasörüne Kalkan'ın ürettiği eklenti ZIP'ini yükle; bu akış .cs3 dosyasına çevirir,
+# cs3-inbox/ klasörüne Darkness'ın ürettiği eklenti ZIP'ini yükle; bu akış .cs3 dosyasına çevirir,
 # Releases sayfasına koyar ve "builds" dalında CloudStream repo'su olarak yayınlar.
 on:
   push:
@@ -41,7 +41,7 @@ jobs:
             rm -rf "work/$n"; mkdir -p "work/$n"
             unzip -q "$z" -d "work/$n"
             s=$(find "work/$n" -maxdepth 3 -name settings.gradle.kts | head -n1)
-            if [ -z "$s" ]; then echo "::error::$n: settings.gradle.kts bulunamadı (Kalkan'ın ZIP'i mi?)"; fail=$((fail+1)); continue; fi
+            if [ -z "$s" ]; then echo "::error::$n: settings.gradle.kts bulunamadı (Darkness'ın ZIP'i mi?)"; fail=$((fail+1)); continue; fi
             root=$(dirname "$s")
             if (cd "$root" && gradle make makePluginsJson --no-daemon --stacktrace); then
               cp "$root"/*/build/*.cs3 out/
@@ -54,8 +54,8 @@ jobs:
           if [ "$ok" -gt 0 ]; then jq -s 'add' work/*.plugins.json > out/plugins.json; else echo '[]' > out/plugins.json; fi
           cat > out/repo.json <<JSON
           {
-            "name": "Kalkan Eklentileri",
-            "description": "Kalkan Tarayıcı ile oluşturulan CloudStream eklentileri",
+            "name": "Darkness Eklentileri",
+            "description": "Darkness Tarayıcı ile oluşturulan CloudStream eklentileri",
             "manifestVersion": 1,
             "pluginLists": ["https://raw.githubusercontent.com/$GITHUB_REPOSITORY/builds/plugins.json"]
           }

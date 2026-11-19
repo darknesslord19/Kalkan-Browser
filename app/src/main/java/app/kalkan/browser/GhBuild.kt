@@ -7,14 +7,14 @@ import java.security.MessageDigest
 import java.time.Instant
 
 /**
- * Kalkan'ın ürettiği CloudStream eklenti ZIP'ini GitHub'a yükler, GitHub Actions'ta .cs3 olarak
+ * Darkness'ın ürettiği CloudStream eklenti ZIP'ini GitHub'a yükler, GitHub Actions'ta .cs3 olarak
  * derletir, bitince .cs3 dosyasını indirir.
  *
  * Akış: ZIP -> cs3-inbox/ (contents API) -> "CS3 Derle" iş akışı -> Releases'taki cs3-N sürümü -> indirme.
  * GitHub anahtarı (fine-grained token) yalnızca bu telefonda saklanır, yedeğe girmez.
  */
 object GhBuild {
-    const val DEFAULT_REPO = "darknesslord19/Kalkan-Browser"
+    const val DEFAULT_REPO = "darknesslord19/Darkness-Browser"
     private const val API = "https://api.github.com"
 
     val token: String get() = Store.str("gh_token", "")
@@ -121,7 +121,7 @@ object GhBuild {
             } else {
                 progress("ZIP GitHub'a yükleniyor…")
                 val body = JSONObject()
-                    .put("message", "cs3-inbox: $plugin (Kalkan)")
+                    .put("message", "cs3-inbox: $plugin (Darkness)")
                     .put("content", Base64.encodeToString(zip, Base64.NO_WRAP))
                     .put("branch", branch)
                 if (oldSha != null) body.put("sha", oldSha)

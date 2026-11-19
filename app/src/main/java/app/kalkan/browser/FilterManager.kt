@@ -110,7 +110,7 @@ object FilterManager {
                 val c = Net.open(l.url)
                 c.connectTimeout = 15000
                 c.readTimeout = 30000
-                c.setRequestProperty("User-Agent", "Kalkan/1.0 (Android)")
+                c.setRequestProperty("User-Agent", "Darkness/1.0 (Android)")
                 if (c.responseCode == 200) {
                     val tmp = File(dir(ctx), "${l.id}.tmp")
                     c.inputStream.use { input -> tmp.outputStream().use { input.copyTo(it) } }

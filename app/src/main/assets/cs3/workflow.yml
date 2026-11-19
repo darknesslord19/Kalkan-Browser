@@ -40,7 +40,7 @@ jobs:
           cat > out/repo.json <<JSON
           {
             "name": "@@NAME@@ Eklentileri",
-            "description": "Kalkan Tarayıcı ile oluşturuldu",
+            "description": "Darkness Tarayıcı ile oluşturuldu",
             "manifestVersion": 1,
             "pluginLists": ["https://raw.githubusercontent.com/$OWNER_REPO/builds/plugins.json"]
           }

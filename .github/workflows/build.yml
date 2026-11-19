@@ -32,20 +32,20 @@ jobs:
           gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
 
       - name: APK'yi adlandir
-        run: cp app/build/outputs/apk/release/app-release.apk "Kalkan-v1.0.${{ github.run_number }}.apk"
+        run: cp app/build/outputs/apk/release/app-release.apk "Darkness-v1.0.${{ github.run_number }}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
           name: Kalkan-APK
-          path: Kalkan-*.apk
+          path: Darkness-*.apk
 
       - name: Surum yayinla
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Kalkan v1.0.${{ github.run_number }}
-          body: "Kalkan tarayıcı — APK dosyasını indirip telefonuna kur."
-          files: Kalkan-*.apk
+          name: Darkness v1.0.${{ github.run_number }}
+          body: "Darkness tarayıcı — APK dosyasını indirip telefonuna kur."
+          files: Darkness-*.apk
           make_latest: true
 
       - name: Hata gunlugunu kaydet

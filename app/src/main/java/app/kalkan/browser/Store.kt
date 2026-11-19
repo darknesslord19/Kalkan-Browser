@@ -369,7 +369,7 @@ object Store {
     /** @return içe aktarılan öğe sayısı */
     fun importJson(text: String): Int {
         val root = JSONObject(text)
-        if (root.optString("app") != "Kalkan") throw IllegalArgumentException("Bu bir Kalkan yedeği değil")
+        if (root.optString("app") != "Kalkan") throw IllegalArgumentException("Bu bir Darkness yedeği değil")
         var n = 0
         root.optJSONObject("prefs")?.let { p ->
             val e = prefs.edit()
