@@ -223,13 +223,13 @@ class @@NAME@@Provider : MainAPI() {
             @@SEARCH_CALL@@
             response.text
         } catch (_: Exception) { "" }
-        var results = parseSearch(primaryBody)
+        var results = parseSearch(aesUnwrap(primaryBody))
         if (results.isEmpty()) {
             for (p in searchFallbacks) {
                 val u = mainUrl + p.replace("%s", encoded)
                 for (h in xhrHeaders) {
                     val body = try { app.get(u, referer = mainUrl, headers = h).text } catch (_: Exception) { "" }
-                    results = parseSearch(body)
+                    results = parseSearch(aesUnwrap(body))
                     if (results.isNotEmpty()) return results
                 }
             }
@@ -458,6 +458,83 @@ class @@NAME@@Provider : MainAPI() {
         return ok
     }
 
+    // ---- Genel AES çözücü: sayfa + site JS dosyalarından anahtar adayları toplar, şifreli blokları dener.
+    // ---- Kipler: CBC sıfır IV (Dizilla/SelcukFlix), IV öneki, CryptoJS "Salted__", DiziPal c/iv/k1^k2
+    private val aesPool = LinkedHashSet<String>()
+    private var aesGood: String? = null
+    private var aesPoolBuilt = false
+
+    private fun b64any(s: String): ByteArray? = runCatching {
+        val c = s.replace('-', '+').replace('_', '/')
+        android.util.Base64.decode(c + "=".repeat((4 - c.length % 4) % 4), android.util.Base64.DEFAULT)
+    }.getOrNull()
+
+    private fun plausible(s: String): Boolean {
+        if (s.length < 8) return false
+        val ok = s.count { it.code in 32..126 || it == '\n' || it == '\r' || it == '\t' || it.code > 159 }
+        return ok.toDouble() / s.length >= 0.95 && Regex("[{\\[]|https?:|//|<").containsMatchIn(s)
+    }
+
+    private fun cbc(k: ByteArray, iv: ByteArray, data: ByteArray): String? = try {
+        val c = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding")
+        c.init(2, javax.crypto.spec.SecretKeySpec(k, "AES"), javax.crypto.spec.IvParameterSpec(iv))
+        String(c.doFinal(data), Charsets.UTF_8).takeIf { plausible(it) }
+    } catch (_: Throwable) { null }
+
+    private fun aesTry(blob: ByteArray, key: String): String? {
+        val kb = key.toByteArray(Charsets.UTF_8)
+        if (blob.size > 32 && String(blob.copyOfRange(0, 8), Charsets.ISO_8859_1) == "Salted__") {
+            val (k, iv) = evpKeyIv(kb, blob.copyOfRange(8, 16))
+            return cbc(k, iv, blob.copyOfRange(16, blob.size))
+        }
+        if (kb.size == 16 || kb.size == 24 || kb.size == 32) {
+            if (blob.size % 16 == 0) cbc(kb, ByteArray(16), blob)?.let { return it }
+            if (blob.size > 16 && (blob.size - 16) % 16 == 0) cbc(kb, blob.copyOfRange(0, 16), blob.copyOfRange(16, blob.size))?.let { return it }
+        }
+        return null
+    }
+
+    private suspend fun aesSweep(text: String, pageUrl: String, doc: org.jsoup.nodes.Document?): List<String> {
+        val out = ArrayList<String>()
+        // DiziPal tarzı: {"c","iv","k1","k2"} -> anahtar = k1 xor k2
+        fun f(n: String) = Regex("\"$n\"\\s*:\\s*\"([^\"]+)\"").find(text)?.groupValues?.get(1)?.let { b64any(it) }
+        val c = f("c"); val iv = f("iv"); val k1 = f("k1"); val k2 = f("k2")
+        if (c != null && iv != null && k1 != null && k2 != null) {
+            val n = minOf(k1.size, k2.size)
+            cbc(ByteArray(n) { (k1[it].toInt() xor k2[it].toInt()).toByte() }, iv, c)?.let { out.add(it) }
+        }
+        val blobs = Regex("[\"']([A-Za-z0-9+/=_-]{32,})[\"']").findAll(text).map { it.groupValues[1] }.distinct()
+            .mapNotNull { s -> b64any(s)?.takeIf { it.size >= 32 && (it.size % 16 == 0 || (it.size - 16) % 16 == 0 || (it.size > 16 && String(it.copyOfRange(0, 8), Charsets.ISO_8859_1) == "Salted__")) } }
+            .take(24).toList()
+        if (blobs.isEmpty()) return out
+        val keyRe = Regex("[\"']([A-Za-z0-9!@#\$%^&*_+=.\\-]{8,64})[\"']")
+        fun harvest(s: String) { keyRe.findAll(s).map { it.groupValues[1] }.filter { !it.startsWith("http") }.forEach { if (aesPool.size < 900) aesPool.add(it) } }
+        harvest(text)
+        if (!aesPoolBuilt) {
+            aesPoolBuilt = true
+            val d = doc ?: runCatching { fetch(pageUrl).document }.getOrNull() ?: runCatching { fetch(mainUrl).document }.getOrNull()
+            val srcs = d?.select("script[src]")?.map { fixUrl(it.attr("src")) }
+                ?.filter { !Regex("(?i)jquery|google|analytics|gtag|bootstrap|cdnjs|jsdelivr|facebook|yandex|adsbygoogle|cloudflare").containsMatchIn(it) }?.distinct()?.take(8).orEmpty()
+            for (u in srcs) runCatching { harvest(app.get(u, referer = mainUrl).text.take(1_500_000)) }
+            d?.let { harvest(it.outerHtml()) }
+        }
+        val keys = (listOfNotNull(aesGood) + aesPool).distinct()
+        var tries = 0
+        for (b in blobs) {
+            for (k in keys) {
+                if (++tries > 60000) return out
+                aesTry(b, k)?.let { aesGood = k; out.add(it); return out + blobs.drop(blobs.indexOf(b) + 1).mapNotNull { nb -> aesTry(nb, k) } }
+            }
+        }
+        return out
+    }
+
+    /** API gövdesinde {"response":"<şifreli>"} varsa çözülmüş metni döndürür. */
+    private suspend fun aesUnwrap(body: String): String {
+        val m = Regex("\"(?:response|data|secureData|payload|encrypted|result)\"\\s*:\\s*\"([A-Za-z0-9+/=_-]{32,})\"").find(body) ?: return body
+        return aesSweep("\"" + m.groupValues[1] + "\"", mainUrl, null).firstOrNull() ?: body
+    }
+
     /** Sayfa betiklerini Rhino ile çalıştırıp (sahte DOM ile) oluşan değişkenlerden / jwplayer.setup'tan akış adreslerini toplar. */
     @Suppress("DEPRECATION")
     private fun rhinoDecode(doc: org.jsoup.nodes.Document, pageUrl: String): List<String> {
@@ -594,6 +671,21 @@ class @@NAME@@Provider : MainAPI() {
         if (emitStreams(text, referer, callback)) found = true
 
         if (!found && knownPlayers(text, referer, subtitleCallback, callback)) found = true
+        if (!found) {
+            for (d0 in aesSweep(text, referer, doc)) {
+                val d1 = d0.replace("\\/", "/").trim()
+                val d = if (d1.startsWith("//")) "https:$d1" else d1
+                if (emitStreams(d, referer, callback)) found = true
+                if (!found) for (u in Regex("https?://[^\\s\"'<>\\\\]+").findAll(d).map { it.value }.filter { !notMedia.containsMatchIn(it) }.distinct().take(3)) {
+                    if (loadExtractor(u, referer, subtitleCallback, callback)) { found = true; break }
+                    if (depth < 2) {
+                        val inner = runCatching { app.get(u, referer = referer).text }.getOrNull()
+                        if (inner != null && scanSource(inner, null, u, depth + 1, subtitleCallback, callback)) { found = true; break }
+                    }
+                }
+                if (found) break
+            }
+        }
         if (!found) {
             val viaJs = rhinoDecode(doc ?: org.jsoup.Jsoup.parse(text), referer) + ajaxHashStreams(text, referer)
             for (c in viaJs.distinct().take(8)) if (emitStreams(c, referer, callback) || sniffHls(c, referer, callback)) { found = true; break }
