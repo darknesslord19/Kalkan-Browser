@@ -70,13 +70,18 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
         setPadding(act.dp(12), act.dp(6), act.dp(12), act.dp(6))
     }
     private val rowsBox = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-    private val scroll = MaxHeightScroll(act, (act.resources.displayMetrics.heightPixels * 0.5f).toInt()).apply {
-        addView(rowsBox)
-        isVerticalScrollBarEnabled = false
-    }
     private val foot = TextView(act).apply {
         textSize = 13f; setTextColor(fg); alpha = 0.85f; visibility = View.GONE
         setPadding(0, act.dp(12), 0, 0)
+    }
+    private val content = LinearLayout(act).apply {
+        orientation = LinearLayout.VERTICAL
+        addView(rowsBox)
+        addView(foot)
+    }
+    private val scroll = MaxHeightScroll(act, (act.resources.displayMetrics.heightPixels * 0.42f).toInt()).apply {
+        addView(content)
+        isVerticalScrollBarEnabled = false
     }
     private val buttons = LinearLayout(act).apply {
         orientation = LinearLayout.VERTICAL
@@ -91,12 +96,11 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
         root.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, act.dp(8)))
         root.addView(pctV)
         root.addView(scroll)
-        root.addView(foot)
         root.addView(buttons)
     }
 
     fun show() {
-        dlg = MaterialAlertDialogBuilder(act).setView(root).setCancelable(false).create().also { it.show() }
+        dlg = MaterialAlertDialogBuilder(act).setView(ScrollView(act).apply { addView(root) }).setCancelable(false).create().also { it.show() }
     }
 
     fun dismiss() { try { dlg?.dismiss() } catch (_: Exception) {} }

@@ -178,6 +178,14 @@ object CsHints {
 
     fun clear(host: String) { Store.prefs.edit().remove(key(host)).apply() }
 
+    /** Tek bir alt alanı doğrudan yazar (false dahil; merge bunları atlar). */
+    fun set(host: String, group: String, k: String, v: Any) {
+        val cur = load(host)
+        val o = cur.optJSONObject(group) ?: JSONObject().also { cur.put(group, it) }
+        o.put(k, v)
+        Store.prefs.edit().putString(key(host), cur.toString()).apply()
+    }
+
     /** Kullanıcıya gösterilecek kısa durum özeti. */
     fun summary(h: JSONObject?): String {
         if (h == null) return "Bu sayfa analiz edilemedi."
@@ -307,7 +315,7 @@ object CsVideo {
 
 /** Arama adresi yoklayıcı: form/yakalanmış uç yoksa yaygın arama adreslerini canlı siteye karşı dener. */
 object CsSearch {
-    private val PATTERNS = listOf(
+    internal val PATTERNS = listOf(
         "/?s=%s", "/search?q=%s", "/?q=%s", "/arama?q=%s", "/ara?q=%s",
         "/search/?q=%s", "/arama/?q=%s", "/ara/?q=%s", "/search/?s=%s", "/search?s=%s",
         "/index.php?do=search&subaction=search&story=%s",
@@ -326,7 +334,7 @@ object CsSearch {
     }
 
     /** Yanıtı karşılaştırmaya hazırlar: JSON kaçışlarını açar, Türkçe harfleri sadeleştirir, küçültür. */
-    private fun fold(t: String): String {
+    internal fun fold(t: String): String {
         var x = t
         if (x.contains("\\u") || x.contains("\\/")) {
             x = Regex("\\\\u([0-9a-fA-F]{4})").replace(x) { it.groupValues[1].toInt(16).toChar().toString() }.replace("\\/", "/")

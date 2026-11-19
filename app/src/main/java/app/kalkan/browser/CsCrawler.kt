@@ -130,6 +130,46 @@ return JSON.stringify({ok:1});
         return null
     }
 
+
+    /** Sayfanın kendi bağlamında (çerezler, Cloudflare geçişi dahil) fetch eder; sonucu yoklayarak bekler. */
+    private fun pageFetch(wv: WebView, url: String, cb: (Int, String) -> Unit) {
+        val id = "k" + System.nanoTime()
+        val js = "(function(u,id){window.__pf=window.__pf||{};try{fetch(u,{credentials:'include',headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/html,application/json,*/*'}}).then(function(r){return r.text().then(function(t){window.__pf[id]={c:r.status,t:t.slice(0,400000)};});}).catch(function(e){window.__pf[id]={c:0,t:''};});}catch(e){window.__pf[id]={c:0,t:''};}})(" +
+            JSONObject.quote(url) + "," + JSONObject.quote(id) + ")"
+        wv.evaluateJavascript(js, null)
+        var tries = 0
+        fun poll() {
+            evalJson(wv, "(function(){var r=(window.__pf||{})['" + id + "'];return r?JSON.stringify(r):null;})()") { o ->
+                if (o != null) cb(o.optInt("c"), o.optString("t"))
+                else if (tries++ < 28) H.postDelayed({ poll() }, 300)
+                else cb(0, "")
+            }
+        }
+        H.postDelayed({ poll() }, 300)
+    }
+
+    private fun webCheck(wv: WebView, origin: String, pattern: String, phrase: String, cb: (Boolean) -> Unit) {
+        val q = URLEncoder.encode(phrase, "UTF-8").replace("+", "%20")
+        val needle = CsSearch.fold(phrase)
+        pageFetch(wv, origin + pattern.replace("%s", q)) { c, t ->
+            if (c != 200 || !CsSearch.fold(t).contains(needle)) { cb(false); return@pageFetch }
+            pageFetch(wv, origin + pattern.replace("%s", "zqxjkw")) { c2, t2 -> cb(!(c2 == 200 && CsSearch.fold(t2).contains(needle))) }
+        }
+    }
+
+    private fun webProbe(wv: WebView, origin: String, phrase: String, cb: (String?) -> Unit) {
+        val t0 = System.currentTimeMillis()
+        val list = CsSearch.PATTERNS
+        fun next(i: Int) {
+            if (i >= list.size || System.currentTimeMillis() - t0 > 60_000) { cb(null); return }
+            webCheck(wv, origin, list[i], phrase) { ok -> if (ok) cb(list[i]) else next(i + 1) }
+        }
+        next(0)
+    }
+
+    private const val CARD_CHECK_JS = "(function(sel){try{var els=document.querySelectorAll(sel),n=0,good=0;for(var i=0;i<els.length&&i<60;i++){var e=els[i];n++;var hs={};var as=e.tagName==='A'?[e]:e.querySelectorAll('a[href]');Array.prototype.forEach.call(as,function(a){hs[a.href]=1;});if((Object.keys(hs).length===1&&e.querySelector('img'))||(e.tagName==='A'&&e.querySelector('img')))good++;}return JSON.stringify({n:n,good:good});}catch(e){return JSON.stringify({n:0,good:0});}})"
+    private const val EP_CHECK_JS = "(function(sel){try{var re=/(\\d+\\s*\\.?\\s*(b[öo]l[üu]m|sezon|episode|season|ep)\\b|\\b(b[öo]l[üu]m|episode|ep|sezon|season)[\\s-]*\\d+|\\d+\\s*x\\s*\\d+)/i;var els=document.querySelectorAll(sel),n=0,good=0;for(var i=0;i<els.length&&i<80;i++){n++;if(re.test((els[i].textContent||'')+' '+(els[i].getAttribute('href')||'')))good++;}return JSON.stringify({n:n,good:good});}catch(e){return JSON.stringify({n:0,good:0});}})"
+
     private fun hasSane(l: JSONObject?): Boolean = l != null && l.optInt("matches") in 3..400
 
     /** Satırları ipuçlarından hesaplar. */
@@ -140,6 +180,7 @@ return JSON.stringify({ok:1});
         val d = h.optJSONObject("detail")
         val p = h.optJSONObject("player")
         if (l == null) set("home", St.AUTO, "Kart seçici bulunamadı. Eklenti çalışma anında görselli film bağlantılarını kendisi bulacak.")
+        else if (l.optBoolean("bad")) set("home", St.AUTO, "Seçici (${l.optString("card")}) tek kart yerine kapsayıcı seçiyor. Yedek kart bulucu devrede.")
         else if (!hasSane(l)) set("home", St.AUTO, "${l.optInt("count")} kart ama seçici güvenilmez (${l.optString("card")}). Yedek kart bulucu devrede.")
         else set("home", St.OK, "${l.optInt("count")} kart · ${l.optString("card")}")
         if (l == null) set("poster", St.WAIT, "")
@@ -155,7 +196,8 @@ return JSON.stringify({ok:1});
         else set("detail", St.WARN, "Detay sayfası taranamadı (ana sayfada kart bulunamadı). Bir film sayfasında “CS analizi” çalıştır.")
         val epCount = d?.optInt("episodeCount") ?: 0
         if (d != null && d.optString("episodes").isNotEmpty()) {
-            if (epCount in 2..400) set("episodes", St.OK, "$epCount bölüm · ${d.optString("episodes")}")
+            if (d.optBoolean("epBad")) set("episodes", St.AUTO, "Seçici bölüm dışı bağlantıları da topluyor. Eklenti yalnızca “Bölüm N” kalıbına uyanları alacak.")
+            else if (epCount in 2..400) set("episodes", St.OK, "$epCount bölüm · ${d.optString("episodes")}")
             else set("episodes", St.WARN, "Bölüm sayısı şüpheli ($epCount). Eklenti yalnızca “Bölüm N” kalıbına uyan bağlantıları alır.")
         } else if ("detail" in scanned) set("episodes", St.OK, "Bölüm listesi yok — film sitesi gibi görünüyor (bölümler film olarak ele alınır).")
         else set("episodes", St.WARN, "Bölüm listesi için bir dizi detay sayfasında “CS analizi” çalıştır.")
@@ -224,17 +266,22 @@ return JSON.stringify({ok:1});
                     val t = r.second.second
                     if (r.first == 403 || r.first == 503 || t.contains("Just a moment", true) || t.contains("cf-browser-verification", true))
                         misc.put("cloudflare", true)
-                    if (r.first == 0 || r.first >= 500 && r.first != 503) misc.put("unreachable", true)
-                } catch (_: Exception) { misc.put("unreachable", true) }
-                for (q in listOf("router=1", "json=1", "ajax=1", "format=json")) {
-                    try {
-                        val r = ApiFinder.fetchText("$origin/?$q", ua, origin, 1 shl 16, mapOf("X-Requested-With" to "XMLHttpRequest", "Accept" to "application/json,*/*"))
-                        val b = r.second.second.trimStart()
-                        if (r.first == 200 && (b.startsWith("{") || b.startsWith("[")) && b.length > 40) { misc.put("router", q); break }
-                    } catch (_: Exception) { }
+                } catch (_: Exception) { }
+                if (misc.length() > 0) CsHints.merge(host, JSONObject().put("misc", misc))
+            }, {
+                // JSON uçları sayfanın kendi bağlamında denenir (Cloudflare uygulama isteklerini engelleyebilir)
+                val params = listOf("router=1", "json=1", "ajax=1", "format=json")
+                fun probe(i: Int) {
+                    if (i >= params.size) { finish(); return }
+                    pageFetch(wv, "$origin/?" + params[i]) { c, t ->
+                        val b = t.trimStart()
+                        if (c == 200 && (b.startsWith("{") || b.startsWith("[")) && b.length > 40) {
+                            CsHints.merge(host, JSONObject().put("misc", JSONObject().put("router", params[i]))); finish()
+                        } else probe(i + 1)
+                    }
                 }
-                CsHints.merge(host, JSONObject().put("misc", misc))
-            }, { finish() })
+                probe(0)
+            })
         }
 
         // ---- 4) arama
@@ -259,19 +306,21 @@ return JSON.stringify({ok:1});
                             val kq = o?.optJSONArray("q")
                             val found = derive(origin, "$origin/", href, kq, phrase)
                             row("search").note = "Doğrulanıyor…"; onUpdate()
-                            bg({
-                                val tl = listOf(phrase)
-                                var res: JSONObject? = found
-                                if (res != null && res.optString("pattern").isNotEmpty()) {
-                                    res.put("verified", CsSearch.check(origin, res.optString("pattern"), tl, ua))
-                                }
-                                if (res == null || (res.optString("pattern").isNotEmpty() && !res.optBoolean("verified"))) {
-                                    // Gerçek yazma işe yaramadıysa ya da doğrulanamadıysa yaygın adresleri yokla
-                                    val p = CsSearch.probe(origin, tl, ua)
-                                    if (p != null) res = JSONObject().put("pattern", p).put("verified", true).put("how", "probe")
-                                }
+                            fun save(res: JSONObject?) {
                                 if (res != null) CsHints.merge(host, JSONObject().put("search", res))
-                            }, { refresh(); netStage() })
+                                refresh(); netStage()
+                            }
+                            fun probeAll() {
+                                row("search").note = "Yaygın adresler deneniyor…"; onUpdate()
+                                webProbe(wv, origin, phrase) { p ->
+                                    save(if (p != null) JSONObject().put("pattern", p).put("verified", true).put("how", "probe") else found)
+                                }
+                            }
+                            if (found != null && found.optString("pattern").isNotEmpty()) {
+                                webCheck(wv, origin, found.optString("pattern"), phrase) { ok ->
+                                    if (ok) save(found.put("verified", true)) else probeAll()
+                                }
+                            } else if (found != null) save(found) else probeAll()
                         }
                     }, 4000)
                 }
@@ -298,8 +347,13 @@ return JSON.stringify({ok:1});
             load(wv, link, 2500, 22000) {
                 analyze(wv, host) {
                     scanned.add("detail")
-                    // Aynı sayfada tıklanmadan oynatıcı yoksa bile devam
-                    refresh(); episodeStage()
+                    val es = CsHints.load(host).optJSONObject("detail")?.optString("episodes").orEmpty()
+                    if (es.isEmpty()) { refresh(); episodeStage() }
+                    else evalJson(wv, EP_CHECK_JS + "(" + JSONObject.quote(es) + ")") { o ->
+                        val n = o?.optInt("n") ?: 0
+                        CsHints.set(host, "detail", "epBad", n > 0 && (o?.optInt("good") ?: 0) < n * 0.6)
+                        refresh(); episodeStage()
+                    }
                 }
             }
         }
@@ -307,7 +361,16 @@ return JSON.stringify({ok:1});
         // ---- 1) ana sayfa
         begin("home", "Ana sayfa açılıyor…")
         load(wv, "$origin/", 2200, 25000) {
-            analyze(wv, host) { scanned.add("home"); refresh(); detailStage() }
+            analyze(wv, host) {
+                scanned.add("home")
+                val card = CsHints.load(host).optJSONObject("list")?.optString("card").orEmpty()
+                if (card.isEmpty()) { refresh(); detailStage() }
+                else evalJson(wv, CARD_CHECK_JS + "(" + JSONObject.quote(card) + ")") { o ->
+                    val n = o?.optInt("n") ?: 0
+                    CsHints.set(host, "list", "bad", n > 0 && (o?.optInt("good") ?: 0) < n * 0.6)
+                    refresh(); detailStage()
+                }
+            }
         }
     }
 }

@@ -239,7 +239,7 @@ private fun MainActivity.buildCsZip(
                 val list = hints.optJSONObject("list")
                 val det = hints.optJSONObject("detail")
                 val titleSel = list?.optString("title").orEmpty()
-                tokens["@@CARD_SEL@@"] = CsGen.ks(list?.optString("card").orEmpty().ifBlank { "a:has(img)" })
+                tokens["@@CARD_SEL@@"] = CsGen.ks(if (list?.optBoolean("bad") == true) "a:has(img)" else list?.optString("card").orEmpty().ifBlank { "a:has(img)" })
                 tokens["@@POSTER_ATTR@@"] = CsGen.ks(list?.optString("posterAttr").orEmpty().ifBlank { "data-src" })
                 tokens["@@EPISODE_SEL@@"] = CsGen.ks(det?.optString("episodes").orEmpty())
                 tokens["@@TITLE_EXPR@@"] =
