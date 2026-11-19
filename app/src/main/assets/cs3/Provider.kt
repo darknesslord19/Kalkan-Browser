@@ -39,8 +39,10 @@ class @@NAME@@Provider : MainAPI() {
             page > 1 -> request.data.trimEnd('/') + "/page/$page/"
             else -> request.data
         }
-        val document = app.get(url, referer = mainUrl).document
+        val resp = fetch(url)
+        val document = resp.document
         val items = findCards(document)
+        if (items.isEmpty() && page <= 1) throw ErrorLoadingException("Kart bulunamadı (HTTP ${resp.code}, ${resp.text.length} bayt): ${resp.text.take(90).replace('\n', ' ')}")
         return newHomePageResponse(request, items, hasNext = items.isNotEmpty())
     }
 
@@ -56,6 +58,15 @@ class @@NAME@@Provider : MainAPI() {
         if (primary.size >= 3) return primary
         val generic = doc.select("a[href]:has(img)").mapNotNull { it.toSearchResult() }.distinctBy { it.url }.filter { ok(it) }
         return if (generic.size > primary.size) generic else primary
+    }
+
+    private val cfKiller by lazy { com.lagradost.cloudstream3.network.CloudflareKiller() }
+
+    /** Önce düz istek; Cloudflare/403/503 engeli görürse CloudflareKiller ile yeniden dener. */
+    private suspend fun fetch(url: String): com.lagradost.nicehttp.NiceResponse {
+        val r = app.get(url, referer = mainUrl)
+        val blocked = r.code == 403 || r.code == 503 || r.text.contains("Just a moment", true) || r.text.contains("cf-browser-verification", true)
+        return if (blocked) app.get(url, referer = mainUrl, interceptor = cfKiller) else r
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
@@ -151,7 +162,7 @@ class @@NAME@@Provider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        val document = app.get(url, referer = mainUrl).document
+        val document = fetch(url).document
 
         val title = document.selectFirst("h1")?.text()?.trim()
             ?: document.selectFirst("meta[property=og:title]")?.attr("content")
