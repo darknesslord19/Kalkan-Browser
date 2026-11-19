@@ -245,6 +245,7 @@ private fun MainActivity.buildCsZip(
                             up.host?.removePrefix("www.")?.endsWith(hostBase) != true)
                 }.distinct().take(24)
                 if (mediaCand.isNotEmpty()) try { CsMedia.analyze(mediaCand, ua, origin, host) } catch (_: Exception) { }
+                val brainNote = try { CsBrain.apply(this, host) } catch (_: Exception) { null }
                 val hints = CsHints.load(host)
                 val report = CsVideo.analyze(t, hints, ua)
                 val list = hints.optJSONObject("list")
@@ -262,6 +263,7 @@ private fun MainActivity.buildCsZip(
                 notes += if (list != null) "Kartlar: ${list.optInt("count")} adet, seçici ${list.optString("card")}" else "Kartlar: bulunamadı, genel yedek seçici (a:has(img)) kullanılıyor"
                 notes += if (det?.optString("episodes").orEmpty().isNotEmpty()) "Bölümler: ${det!!.optInt("episodeCount")} adet, seçici ${det.optString("episodes")}" else "Bölümler: bulunamadı (film olarak ele alınır)"
                 notes += report.lines
+                brainNote?.let { notes += it }
                 tokens["@@ANALYSIS_NOTE@@"] = notes.joinToString("\n") { " *  - " + it.replace("*/", "* /").replace("\n", " ") }
                 val nav = hints.optJSONArray("nav")
                 val pages = StringBuilder("        \"\$mainUrl/\" to \"Ana sayfa\",")
@@ -271,6 +273,19 @@ private fun MainActivity.buildCsZip(
                     pages.append("\n        \"\$mainUrl").append(CsGen.ks(o.optString("path")).trimEnd('/')).append("/\" to \"")
                         .append(CsGen.ks(o.optString("name"))).append("\",")
                 }
+                // Bilgi bankasındaki gerçek kategori listesi (varsa) menüden gelenlerin önüne geçer
+                val kbPages = try { CsBrain.mainPages(this, host) } catch (_: Exception) { emptyList() }
+                if (kbPages.size >= 3) {
+                    val seenP = HashSet<String>()
+                    pages.setLength(0)
+                    pages.append("        \"\$mainUrl/\" to \"Ana sayfa\",")
+                    for ((path, title) in kbPages.take(30)) {
+                        if (!seenP.add(path)) continue
+                        val addr = if (path.startsWith("http")) CsGen.ks(path) else "\$mainUrl" + CsGen.ks(path)
+                        pages.append("\n        \"").append(addr).append("\" to \"").append(CsGen.ks(title)).append("\",")
+                    }
+                }
+                tokens["@@KB_KEYS@@"] = try { CsBrain.aesKeys(this).joinToString(", ") { "\"${CsGen.ks(it)}\"" } } catch (_: Exception) { "" }
                 tokens["@@MAIN_PAGES@@"] = pages.toString()
                 // Arama: 1) canlı yakalanan uç  2) sayfadaki form  3) adres yoklama  4) WordPress varsayılanı
                 val encExpr = "\${java.net.URLEncoder.encode(query, \"UTF-8\")}"

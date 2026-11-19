@@ -1,0 +1,2613 @@
+{
+ "version": 1,
+ "learnedFrom": "ATEST.zip (27 eklenti) + HDFilmCehennemi + Donkey",
+ "sites": {
+  "animecix.tv": {
+   "name": "AnimeciX",
+   "flags": [
+    "jsonApi"
+   ],
+   "searchPattern": "/secure/search/%s?limit=20",
+   "searchRaw": [
+    "\"/secure/search/${query}?limit=20\""
+   ],
+   "mainPages": [
+    [
+     "/secure/last-episodes",
+     "Son Eklenen Bölümler"
+    ],
+    [
+     "/secure/titles?type=series&onlyStreamable=true",
+     "Seriler"
+    ],
+    [
+     "/secure/titles?type=movie&onlyStreamable=true",
+     "Filmler"
+    ]
+   ],
+   "players": [
+    {
+     "class": "TauVideo",
+     "base": "ExtractorApi",
+     "url": "https://tau-video.xyz"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": ""
+  },
+  "anizm.com.tr": {
+   "name": "Anizm",
+   "flags": [
+    "packed",
+    "jsonApi"
+   ],
+   "searchPattern": "/arama?arama=%s",
+   "searchRaw": [
+    "searchJsonUrl",
+    "\"/arama?arama=$query\""
+   ],
+   "mainPages": [
+    [
+     "/arama?kategoriler%5B0%5D=1",
+     "Macera"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=2",
+     "Aksiyon"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=3",
+     "Komedi"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=4",
+     "Dram"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=5",
+     "Romantizm"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=6",
+     "Ecchi"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=8",
+     "Bilim-Kurgu"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=11",
+     "Doğaüstü-Güçler"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=13",
+     "Fantastik"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=26",
+     "Okul"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=31",
+     "Seinen"
+    ],
+    [
+     "/arama?kategoriler%5B0%5D=34",
+     "Shounen"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "belgeselx.com": {
+   "name": "BelgeselX",
+   "flags": [],
+   "searchPattern": "",
+   "searchRaw": [
+    "\"https://cse.google.com/cse.js?cx=${cx}\"",
+    "\"https://cse.google.com/cse/element/v1?rsz=filtered_cse&num=100&hl=tr&source=gcsc&cselibv=${cseLibVersion}&cx=${cx}&q=${query}&safe=off&cse_tok=${cseToken}&sort=&exp=cc%2Capo&fexp=${fexp}&callback=google.search.cse.api9969&rurl=https%3A%2F%2Fbelgeselx.com%2F\""
+   ],
+   "mainPages": [
+    [
+     "/konu/turk-tarihi-belgeselleri",
+     "Türk Tarihi"
+    ],
+    [
+     "/konu/tarih-belgeselleri",
+     "Tarih"
+    ],
+    [
+     "/konu/seyehat-belgeselleri",
+     "Seyahat"
+    ],
+    [
+     "/konu/seri-belgeseller",
+     "Seri"
+    ],
+    [
+     "/konu/savas-belgeselleri",
+     "Savaş"
+    ],
+    [
+     "/konu/sanat-belgeselleri",
+     "Sanat"
+    ],
+    [
+     "/konu/psikoloji-belgeselleri",
+     "Psikoloji"
+    ],
+    [
+     "/konu/polisiye-belgeselleri",
+     "Polisiye"
+    ],
+    [
+     "/konu/otomobil-belgeselleri",
+     "Otomobil"
+    ],
+    [
+     "/konu/nazi-belgeselleri",
+     "Nazi"
+    ],
+    [
+     "/konu/muhendislik-belgeselleri",
+     "Mühendislik"
+    ],
+    [
+     "/konu/kultur-din-belgeselleri",
+     "Kültür Din"
+    ],
+    [
+     "/konu/kozmik-belgeseller",
+     "Kozmik"
+    ],
+    [
+     "/konu/hayvan-belgeselleri",
+     "Hayvan"
+    ],
+    [
+     "/konu/eski-tarih-belgeselleri",
+     "Eski Tarih"
+    ],
+    [
+     "/konu/egitim-belgeselleri",
+     "Eğitim"
+    ],
+    [
+     "/konu/dunya-belgeselleri",
+     "Dünya"
+    ],
+    [
+     "/konu/doga-belgeselleri",
+     "Doğa"
+    ],
+    [
+     "/konu/bilim-belgeselleri",
+     "Bilim"
+    ]
+   ],
+   "players": [
+    {
+     "class": "Odnoklassniki",
+     "base": "ExtractorApi",
+     "url": "https://odnoklassniki.ru"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": ""
+  },
+  "cizgimax.online": {
+   "name": "ÇizgiMax",
+   "flags": [
+    "packed",
+    "jsonApi"
+   ],
+   "searchPattern": "",
+   "searchRaw": [
+    "url"
+   ],
+   "mainPages": [
+    [
+     "/",
+     "Son Eklenenler"
+    ],
+    [
+     "/diziler/cizgi-film/",
+     "Çizgi Filmler"
+    ],
+    [
+     "/diziler/anime/",
+     "Animeler"
+    ],
+    [
+     "/diziler/dizi/",
+     "Diziler"
+    ],
+    [
+     "/film/",
+     "Filmler"
+    ],
+    [
+     "/tur/aksiyon/",
+     "Aksiyon"
+    ],
+    [
+     "/tur/macera/",
+     "Macera"
+    ],
+    [
+     "/tur/komedi/",
+     "Komedi"
+    ],
+    [
+     "/tur/korku/",
+     "Korku"
+    ],
+    [
+     "/tur/bilim-kurgu/",
+     "Bilim Kurgu"
+    ],
+    [
+     "/tur/fantezi/",
+     "Fantezi"
+    ],
+    [
+     "/tur/dram/",
+     "Dram"
+    ],
+    [
+     "/tur/gizem/",
+     "Gizem"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [],
+   "xrw": ""
+  },
+  "ddizi.tel": {
+   "name": "DDizi",
+   "flags": [],
+   "searchPattern": "",
+   "searchRaw": [
+    "\"/arama/\""
+   ],
+   "mainPages": [
+    [
+     "/yeni-eklenenler1",
+     "Son Eklenen Bölümler"
+    ],
+    [
+     "/yabanci-dizi-izle",
+     "Yabancı Diziler"
+    ],
+    [
+     "/eski.diziler",
+     "Eski Diziler"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [],
+   "xrw": ""
+  },
+  "dizibox.live": {
+   "name": "DiziBox",
+   "flags": [
+    "aes",
+    "cloudflare"
+   ],
+   "searchPattern": "",
+   "searchRaw": [
+    "url"
+   ],
+   "mainPages": [
+    [
+     "/tum-bolumler/page/SAYFA/",
+     "Son Bölümler"
+    ],
+    [
+     "/tum-bolumler/page/SAYFA/?tip=populer",
+     "Popüler Diziler"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/",
+     "Yeni Eklenenler"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?ulke[]=turkiye&yil=&imdb",
+     "Yerli Diziler"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?tur[0]=aksiyon&yil&imdb",
+     "Aksiyon"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?tur[0]=bilimkurgu&yil&imdb",
+     "Bilimkurgu"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?tur[0]=komedi&yil&imdb",
+     "Komedi"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?tur[0]=dram&yil&imdb",
+     "Dram"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?tur[0]=fantastik&yil&imdb",
+     "Fantastik"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?tur[0]=gerilim&yil&imdb",
+     "Gerilim"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?tur[0]=korku&yil&imdb",
+     "Korku"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?tur[0]=romantik&yil&imdb",
+     "Romantik"
+    ],
+    [
+     "/dizi-arsivi/page/SAYFA/?tur[0]=animasyon&yil&imdb",
+     "Animasyon"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "dizigom3.top": {
+   "name": "DiziGom",
+   "flags": [
+    "cloudflare"
+   ],
+   "searchPattern": "/ara?q=%s.trim().replace(",
+   "searchRaw": [
+    "\"/ara?q=${query.trim().replace(\""
+   ],
+   "mainPages": [
+    [
+     "/diziler",
+     "Diziler"
+    ],
+    [
+     "/filmler",
+     "Filmler"
+    ],
+    [
+     "/animes",
+     "Animeler"
+    ],
+    [
+     "/trend",
+     "Trend İçerikler"
+    ],
+    [
+     "/tur/aksiyon",
+     "Aksiyon"
+    ],
+    [
+     "/tur/bilim-kurgu",
+     "Bilim Kurgu"
+    ],
+    [
+     "/tur/dram",
+     "Dram"
+    ],
+    [
+     "/tur/fantastik",
+     "Fantastik"
+    ],
+    [
+     "/tur/gerilim",
+     "Gerilim"
+    ],
+    [
+     "/tur/gizem",
+     "Gizem"
+    ],
+    [
+     "/tur/komedi",
+     "Komedi"
+    ],
+    [
+     "/tur/korku",
+     "Korku"
+    ],
+    [
+     "/tur/macera",
+     "Macera"
+    ],
+    [
+     "/tur/romantik",
+     "Romantik"
+    ],
+    [
+     "/tur/suc",
+     "Suç"
+    ],
+    [
+     "/platform/netflix",
+     "Netflix"
+    ],
+    [
+     "/platform/disney",
+     "Disney+"
+    ],
+    [
+     "/platform/hbo-max",
+     "HBO Max"
+    ],
+    [
+     "/platform/amazon-prime",
+     "Amazon Prime"
+    ]
+   ],
+   "players": [
+    {
+     "class": "DiziGomWebViewExtractor",
+     "base": "ExtractorApi",
+     "url": "https://www.dizigom.icu"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": ""
+  },
+  "dizikorea3.com": {
+   "name": "DiziKorea",
+   "flags": [
+    "cloudflare",
+    "jsonApi"
+   ],
+   "searchPattern": "/ara?q=%s",
+   "searchRaw": [
+    "\"/ara?q=$query\""
+   ],
+   "mainPages": [
+    [
+     "/kore-dizileri-izle-dq1/sayfa/",
+     "Kore Dizileri"
+    ],
+    [
+     "/cin-dizileri/sayfa/",
+     "Çin Dizileri"
+    ],
+    [
+     "/japon-dizileri/sayfa/",
+     "Japon Dizileri"
+    ],
+    [
+     "/tayland-dizileri/sayfa/",
+     "Tayland Dizileri"
+    ],
+    [
+     "/tayvan-dizileri/sayfa/",
+     "Tayvan Dizileri"
+    ],
+    [
+     "/filipin-dizileri/sayfa/",
+     "Filipin Dizileri"
+    ],
+    [
+     "/filmler/sayfa/",
+     "Filmler"
+    ],
+    [
+     "/cin-filmleri/sayfa/",
+     "Çin Filmleri"
+    ],
+    [
+     "/tayland-filmleri/sayfa/",
+     "Tayland Filmleri"
+    ],
+    [
+     "/efsane-diziler/sayfa/",
+     "Efsane Diziler"
+    ],
+    [
+     "/dizi-arsivi/sayfa/",
+     "Dizi Arşivi"
+    ]
+   ],
+   "players": [
+    {
+     "class": "VideoSeyred",
+     "base": "ExtractorApi",
+     "url": "https://videoseyred.in"
+    },
+    {
+     "class": "PlayerKorea",
+     "base": "ExtractorApi",
+     "url": "https://playerdkorea.xyz"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "dizimag.onl": {
+   "name": "DiziMag",
+   "flags": [
+    "aes",
+    "rhino",
+    "webview",
+    "jsonApi"
+   ],
+   "searchPattern": "",
+   "searchRaw": [
+    "\"/search\""
+   ],
+   "mainPages": [
+    [
+     "/",
+     "Son Eklenenler"
+    ],
+    [
+     "/diziler",
+     "Diziler"
+    ],
+    [
+     "/filmler",
+     "Filmler"
+    ],
+    [
+     "/imdbtop250",
+     "IMDb Top 250"
+    ],
+    [
+     "/seri-filmler",
+     "Seri Filmler"
+    ],
+    [
+     "/tum-diziler",
+     "Tüm Diziler"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "ddizimom.net": {
+   "name": "DiziMom",
+   "flags": [
+    "aes",
+    "bePlayer",
+    "cloudflare",
+    "jsonApi"
+   ],
+   "searchPattern": "",
+   "searchRaw": [
+    "url"
+   ],
+   "mainPages": [
+    [
+     "/diziler",
+     "Diziler"
+    ],
+    [
+     "/filmler",
+     "Filmler"
+    ],
+    [
+     "/animes",
+     "Animeler"
+    ],
+    [
+     "/tur/aksiyon",
+     "Aksiyon"
+    ],
+    [
+     "/tur/dram",
+     "Dram"
+    ],
+    [
+     "/tur/komedi",
+     "Komedi"
+    ],
+    [
+     "/tur/bilim-kurgu",
+     "Bilim-Kurgu"
+    ],
+    [
+     "/tur/fantastik",
+     "Fantastik"
+    ],
+    [
+     "/tur/gerilim",
+     "Gerilim"
+    ],
+    [
+     "/tur/korku",
+     "Korku"
+    ],
+    [
+     "/tur/belgesel",
+     "Belgeseller"
+    ]
+   ],
+   "players": [
+    {
+     "class": "HDMomPlayer",
+     "base": "ExtractorApi",
+     "url": "https://hdmomplayer.com"
+    },
+    {
+     "class": "PeaceMakerst",
+     "base": "ExtractorApi",
+     "url": "https://peacemakerst.com"
+    },
+    {
+     "class": "VideoSeyred",
+     "base": "ExtractorApi",
+     "url": "https://videoseyred.in"
+    },
+    {
+     "class": "HDStreamAble",
+     "base": "PeaceMakerst",
+     "url": "https://hdstreamable.com"
+    },
+    {
+     "class": "HDPlayerSystem",
+     "base": "ExtractorApi",
+     "url": "https://hdplayersystem.com"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "dizipal1820.com": {
+   "name": "DiziPal",
+   "flags": [
+    "aes",
+    "cloudflare",
+    "jsonApi"
+   ],
+   "searchPattern": "",
+   "searchRaw": [
+    "mainUrl",
+    "\"/bg/searchcontent\""
+   ],
+   "mainPages": [
+    [
+     "/filmler",
+     "Son Filmler"
+    ],
+    [
+     "/diziler",
+     "Son Diziler"
+    ],
+    [
+     "/anime",
+     "Anime"
+    ],
+    [
+     "/yeni-eklenen-bolumler",
+     "Yeni Bölümler"
+    ],
+    [
+     "/filmler/kategori/aksiyon",
+     "Aksiyon Filmleri"
+    ],
+    [
+     "/filmler/kategori/komedi",
+     "Komedi Filmleri"
+    ],
+    [
+     "/filmler/kategori/dram",
+     "Dram Filmleri"
+    ],
+    [
+     "/filmler/kategori/korku",
+     "Korku Filmleri"
+    ],
+    [
+     "/filmler/kategori/bilim-kurgu",
+     "Bilim Kurgu Filmleri"
+    ],
+    [
+     "/filmler/kategori/macera",
+     "Macera Filmleri"
+    ],
+    [
+     "/filmler/kategori/animasyon",
+     "Animasyon Filmleri"
+    ],
+    [
+     "/filmler/kategori/belgesel",
+     "Belgesel Filmleri"
+    ],
+    [
+     "/filmler/kategori/gerilim",
+     "Gerilim Filmleri"
+    ],
+    [
+     "/filmler/kategori/gizem",
+     "Gizem Filmleri"
+    ],
+    [
+     "/filmler/kategori/romantik",
+     "Romantik Filmleri"
+    ],
+    [
+     "/filmler/kategori/fantastik",
+     "Fantastik Filmleri"
+    ],
+    [
+     "/diziler/kategori/aksiyon",
+     "Aksiyon Dizileri"
+    ],
+    [
+     "/diziler/kategori/komedi",
+     "Komedi Dizileri"
+    ],
+    [
+     "/diziler/kategori/dram",
+     "Dram Dizileri"
+    ],
+    [
+     "/diziler/kategori/korku",
+     "Korku Dizileri"
+    ],
+    [
+     "/diziler/kategori/bilim-kurgu",
+     "Bilim Kurgu Dizileri"
+    ],
+    [
+     "/diziler/kategori/animasyon",
+     "Animasyon Dizileri"
+    ],
+    [
+     "/diziler/kategori/gerilim",
+     "Gerilim Dizileri"
+    ],
+    [
+     "/diziler/kategori/gizem",
+     "Gizem Dizileri"
+    ],
+    [
+     "/diziler/kategori/romantik",
+     "Romantik Dizileri"
+    ]
+   ],
+   "players": [
+    {
+     "class": "DizipalPlayer",
+     "base": "ExtractorApi",
+     "url": "dizipal.com"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "dizilla.now": {
+   "name": "Dizilla",
+   "flags": [
+    "aes",
+    "cloudflare",
+    "nextData",
+    "jsonApi"
+   ],
+   "searchPattern": "/api/bg/searchContent?searchterm=%s",
+   "searchRaw": [
+    "\"/api/bg/searchContent?searchterm=$query\""
+   ],
+   "mainPages": [
+    [
+     "/tum-bolumler",
+     "Yeni Eklenen Bölümler"
+    ],
+    [
+     "/arsiv",
+     "Yeni Eklenen Diziler"
+    ],
+    [
+     "/dizi-turu/aksiyon",
+     "Aksiyon"
+    ],
+    [
+     "/dizi-turu/animasyon",
+     "Animasyon"
+    ],
+    [
+     "/dizi-turu/bilim-kurgu",
+     "Bilim Kurgu"
+    ],
+    [
+     "/dizi-turu/dram",
+     "Dram"
+    ],
+    [
+     "/dizi-turu/fantastik",
+     "Fantastik"
+    ],
+    [
+     "/dizi-turu/gerilim",
+     "Gerilim"
+    ],
+    [
+     "/dizi-turu/gizem",
+     "Gizem"
+    ],
+    [
+     "/dizi-turu/komedi",
+     "Komedi"
+    ],
+    [
+     "/dizi-turu/korku",
+     "Korku"
+    ],
+    [
+     "/dizi-turu/macera",
+     "Macera"
+    ],
+    [
+     "/dizi-turu/romantik",
+     "Romantik"
+    ],
+    [
+     "/dizi-turu/savas",
+     "Savaş"
+    ],
+    [
+     "/dizi-turu/suc",
+     "Suç"
+    ],
+    [
+     "/dizi-turu/western",
+     "Western"
+    ]
+   ],
+   "players": [
+    {
+     "class": "Hotlinger",
+     "base": "ContentX",
+     "url": "https://sn.hotlinger.com"
+    },
+    {
+     "class": "FourCX",
+     "base": "ContentX",
+     "url": "https://four.contentx.me"
+    },
+    {
+     "class": "PlayRu",
+     "base": "ContentX",
+     "url": "https://playru.net"
+    },
+    {
+     "class": "FourPlayRu",
+     "base": "ContentX",
+     "url": "https://four.playru.net"
+    },
+    {
+     "class": "Pichive",
+     "base": "ContentX",
+     "url": "https://pichive.online"
+    },
+    {
+     "class": "FourPichive",
+     "base": "ContentX",
+     "url": "https://four.pichive.online"
+    },
+    {
+     "class": "SNplayer",
+     "base": "ContentX",
+     "url": "https://sn.dplayer82.site"
+    },
+    {
+     "class": "ContentX",
+     "base": "ExtractorApi",
+     "url": "https://contentx.me"
+    }
+   ],
+   "aesKeys": [
+    "9bYMCNQiWsXIYFWYAu7EkdsSbmGBTyUI"
+   ],
+   "xrw": "XMLHttpRequest"
+  },
+  "filmkovasi.co": {
+   "name": "FilmKovası",
+   "flags": [
+    "jsonApi"
+   ],
+   "searchPattern": "/?s=%s",
+   "searchRaw": [
+    "\"/?s=${query}\""
+   ],
+   "mainPages": [
+    [
+     "/filmizle/aile/",
+     "Aile"
+    ],
+    [
+     "/filmizle/aksiyon-hd/",
+     "Aksiyon"
+    ],
+    [
+     "/filmizle/animasyon/",
+     "Animasyon"
+    ],
+    [
+     "/filmizle/belgesel-hd/",
+     "Belgesel"
+    ],
+    [
+     "/filmizle/bilim-kurgu/",
+     "Bilim Kurgu"
+    ],
+    [
+     "/filmizle/dram-hd/",
+     "Dram"
+    ],
+    [
+     "/filmizle/fantastik-hd/",
+     "Fantastik"
+    ],
+    [
+     "/filmizle/gerilim/",
+     "Gerilim"
+    ],
+    [
+     "/filmizle/gizem/",
+     "Gizem"
+    ],
+    [
+     "/filmizle/komedi-hd/",
+     "Komedi"
+    ],
+    [
+     "/filmizle/korku/",
+     "Korku"
+    ],
+    [
+     "/filmizle/macera-hd/",
+     "Macera"
+    ],
+    [
+     "/filmizle/romantik-hd/",
+     "Romantik"
+    ],
+    [
+     "/filmizle/savas-hd/",
+     "Savaş"
+    ],
+    [
+     "/filmizle/suc-hd/",
+     "Suç"
+    ],
+    [
+     "/filmizle/tarih/",
+     "Tarih"
+    ],
+    [
+     "/filmizle/vahsi-bati-hd/",
+     "Vahşi Batı"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [],
+   "xrw": ""
+  },
+  "filmmakinesi.to": {
+   "name": "FilmMakinesi",
+   "flags": [
+    "webview",
+    "packed",
+    "cloudflare"
+   ],
+   "searchPattern": "/arama/?s=%s",
+   "searchRaw": [
+    "\"/arama/?s=$query\""
+   ],
+   "mainPages": [
+    [
+     "/filmler-1/sayfa/",
+     "Son Filmler"
+    ],
+    [
+     "/film-izle/olmeden-izlenmesi-gerekenler-fm1/sayfa/",
+     "Ölmeden İzle"
+    ],
+    [
+     "/tur/aksiyon-fm1/film/sayfa/",
+     "Aksiyon"
+    ],
+    [
+     "/tur/bilim-kurgu-fm2/film/sayfa/",
+     "Bilim Kurgu"
+    ],
+    [
+     "/tur/macera-fm1/film/sayfa/",
+     "Macera"
+    ],
+    [
+     "/tur/komedi-fm1/film/sayfa/",
+     "Komedi"
+    ],
+    [
+     "/tur/romantik-fm1/film/sayfa/",
+     "Romantik"
+    ],
+    [
+     "/tur/belgesel/film/sayfa/",
+     "Belgesel"
+    ],
+    [
+     "/tur/fantastik-fm1/film/sayfa/",
+     "Fantastik"
+    ],
+    [
+     "/tur/polisiye/film/sayfa/",
+     "Polisiye Suç"
+    ],
+    [
+     "/tur/korku-fm1/film/sayfa/",
+     "Korku"
+    ]
+   ],
+   "players": [
+    {
+     "class": "CloseLoadExtractor",
+     "base": "ExtractorApi",
+     "url": "https://closeload.filmmakinesi.to"
+    },
+    {
+     "class": "CloseLoadTo",
+     "base": "CloseLoadExtractor",
+     "url": "https://closeload.filmmakinesi.to"
+    },
+    {
+     "class": "CloseLoadFilm",
+     "base": "CloseLoadExtractor",
+     "url": "https://closeload.filmmakinesi.film"
+    },
+    {
+     "class": "CloseLoadDe",
+     "base": "CloseLoadExtractor",
+     "url": "https://closeload.filmmakinesi.de"
+    },
+    {
+     "class": "CloseLoadTv",
+     "base": "CloseLoadExtractor",
+     "url": "https://closeload.filmmakinesi.tv"
+    },
+    {
+     "class": "CloseLoadSh",
+     "base": "CloseLoadExtractor",
+     "url": "https://closeload.filmmakinesi.sh"
+    },
+    {
+     "class": "CloseLoadCom",
+     "base": "CloseLoadExtractor",
+     "url": "https://closeload.com"
+    },
+    {
+     "class": "CloseLoadNet",
+     "base": "CloseLoadExtractor",
+     "url": "https://closeload.net"
+    },
+    {
+     "class": "CloseLoadOrg",
+     "base": "CloseLoadExtractor",
+     "url": "https://closeload.org"
+    },
+    {
+     "class": "RapidExtractor",
+     "base": "CloseLoadExtractor",
+     "url": "https://rapid.filmmakinesi.to"
+    },
+    {
+     "class": "RapidTo",
+     "base": "RapidExtractor",
+     "url": "https://rapid.filmmakinesi.to"
+    },
+    {
+     "class": "RapidFilm",
+     "base": "RapidExtractor",
+     "url": "https://rapid.filmmakinesi.film"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "filmmodu.one": {
+   "name": "FilmModu",
+   "flags": [
+    "jsonApi"
+   ],
+   "searchPattern": "/film-ara?term=%s",
+   "searchRaw": [
+    "\"/film-ara?term=${query}\""
+   ],
+   "mainPages": [
+    [
+     "/film-tur/4k-film-izle",
+     "4K"
+    ],
+    [
+     "/film-tur/aile-filmleri",
+     "Aile"
+    ],
+    [
+     "/film-tur/aksiyon",
+     "Aksiyon"
+    ],
+    [
+     "/film-tur/animasyon",
+     "Animasyon"
+    ],
+    [
+     "/film-tur/belgeseller",
+     "Belgesel"
+    ],
+    [
+     "/film-tur/bilim-kurgu-filmleri",
+     "Bilim-Kurgu"
+    ],
+    [
+     "/film-tur/dram-filmleri",
+     "Dram"
+    ],
+    [
+     "/film-tur/fantastik-filmler",
+     "Fantastik"
+    ],
+    [
+     "/film-tur/gerilim",
+     "Gerilim"
+    ],
+    [
+     "/film-tur/gizem-filmleri",
+     "Gizem"
+    ],
+    [
+     "/film-tur/hd-hint-filmleri",
+     "Hint Filmleri"
+    ],
+    [
+     "/film-tur/kisa-film",
+     "Kısa Film"
+    ],
+    [
+     "/film-tur/hd-komedi-filmleri",
+     "Komedi"
+    ],
+    [
+     "/film-tur/korku-filmleri",
+     "Korku"
+    ],
+    [
+     "/film-tur/kult-filmler-izle",
+     "Kült Filmler"
+    ],
+    [
+     "/film-tur/macera-filmleri",
+     "Macera"
+    ],
+    [
+     "/film-tur/muzik",
+     "Müzik"
+    ],
+    [
+     "/film-tur/odullu-filmler-izle",
+     "Oscar Ödüllü Filmler"
+    ],
+    [
+     "/film-tur/romantik-filmler",
+     "Romantik"
+    ],
+    [
+     "/film-tur/savas-filmleri",
+     "Savaş"
+    ],
+    [
+     "/film-tur/stand-up",
+     "Stand Up"
+    ],
+    [
+     "/film-tur/suc-filmleri",
+     "Suç"
+    ],
+    [
+     "/film-tur/tarih",
+     "Tarih"
+    ],
+    [
+     "/film-tur/tavsiye-filmler",
+     "Tavsiye Filmler"
+    ],
+    [
+     "/film-tur/tv-film",
+     "TV film"
+    ],
+    [
+     "/film-tur/vahsi-bati-filmleri",
+     "Vahşi Batı"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "hdfilmizle.live": {
+   "name": "HDFilmİzle",
+   "flags": [
+    "jsonApi"
+   ],
+   "searchPattern": "",
+   "searchRaw": [
+    "\"/search/\""
+   ],
+   "mainPages": [
+    [
+     "/tur/aile-1/",
+     "Aile Filmleri"
+    ],
+    [
+     "/tur/aksiyon-1/",
+     "Aksiyon Filmleri"
+    ],
+    [
+     "/tur/animasyon-1/",
+     "Animasyon Filmleri"
+    ],
+    [
+     "/tur/belgesel-1/",
+     "Belgesel Filmleri"
+    ],
+    [
+     "/tur/bilim-kurgu-1/",
+     "Bilim Kurgu Filmleri"
+    ],
+    [
+     "/tur/dram-1/",
+     "Dram Filmleri"
+    ],
+    [
+     "/tur/fantastik-1/",
+     "Fantastik Filmleri"
+    ],
+    [
+     "/tur/gerilim-1/",
+     "Gerilim Filmleri"
+    ],
+    [
+     "/tur/gizem-1/",
+     "Gizem Filmleri"
+    ],
+    [
+     "/tur/komedi-1/",
+     "Komedi Filmleri"
+    ],
+    [
+     "/tur/korku-1/",
+     "Korku Filmleri"
+    ],
+    [
+     "/tur/macera-1/",
+     "Macera Filmleri"
+    ],
+    [
+     "/tur/muzik-1/",
+     "Müzik Filmleri"
+    ],
+    [
+     "/tur/romantik-1/",
+     "Romantik Filmler"
+    ],
+    [
+     "/tur/savas-1/",
+     "Savaş Filmleri"
+    ],
+    [
+     "/tur/suc-1/",
+     "Suç Filmleri"
+    ],
+    [
+     "/tur/tarih-1/",
+     "Tarih Filmleri"
+    ],
+    [
+     "/tur/vahsi-bati-1/",
+     "Vahşi Batı Filmleri"
+    ],
+    [
+     "/tur/yerli-film-izle-1/",
+     "Yerli Filmler"
+    ]
+   ],
+   "players": [
+    {
+     "class": "VidRameExtractor",
+     "base": "ExtractorApi",
+     "url": "https://vidrame.pro"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "hintfilmizle.com": {
+   "name": "HintFilmİzle",
+   "flags": [
+    "cloudflare",
+    "jsonApi"
+   ],
+   "searchPattern": "",
+   "searchRaw": [
+    "url"
+   ],
+   "mainPages": [
+    [
+     "/tur/aile-filmleri",
+     "Aile"
+    ],
+    [
+     "/tur/aksiyon-filmleri",
+     "Aksiyon"
+    ],
+    [
+     "/tur/animasyon-filmleri",
+     "Animasyon"
+    ],
+    [
+     "/tur/bilim-kurgu-filmleri",
+     "Bilim Kurgu"
+    ],
+    [
+     "/tur/dram-filmleri",
+     "Dram"
+    ],
+    [
+     "/tur/fantastik-filmleri",
+     "Fantastik"
+    ],
+    [
+     "/tur/komedi-filmleri",
+     "Komedi"
+    ],
+    [
+     "/tur/korku-filmleri",
+     "Korku"
+    ],
+    [
+     "/tur/macera-filmleri",
+     "Macera"
+    ],
+    [
+     "/tur/romantik-filmleri",
+     "Romantik"
+    ],
+    [
+     "/tur/savas-filmleri",
+     "Savaş"
+    ],
+    [
+     "/tur/suc-filmleri",
+     "Suç"
+    ],
+    [
+     "/tur/tarih-filmleri",
+     "Tarih"
+    ],
+    [
+     "/tur/gerilim-filmleri",
+     "Gerilim"
+    ],
+    [
+     "/netflix-izle",
+     "Netflix"
+    ]
+   ],
+   "players": [
+    {
+     "class": "HintFilmIzleWebViewExtractor",
+     "base": "ExtractorApi",
+     "url": "https://www.hintfilmizle.com"
+    }
+   ],
+   "aesKeys": [
+    "RySdvcyu5iTUxn97vn4HwoniwgxaCynA"
+   ],
+   "xrw": "XMLHttpRequest"
+  },
+  "jetfilmizle.now": {
+   "name": "JetFilmizle",
+   "flags": [],
+   "searchPattern": "",
+   "searchRaw": [
+    "\"/arama?q=\""
+   ],
+   "mainPages": [
+    [
+     "/saglayici/netflix",
+     "Netflix"
+    ],
+    [
+     "/gunun-kesleri",
+     "Editörün Seçimi"
+    ],
+    [
+     "/yerli-filmler",
+     "Türk Filmleri"
+    ],
+    [
+     "/diziler",
+     "Diziler"
+    ],
+    [
+     "/nette-ilkler",
+     "Nette İlk Filmler"
+    ]
+   ],
+   "players": [
+    {
+     "class": "PixelDrain",
+     "base": "ExtractorApi",
+     "url": "https://pixeldrain.com"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "kultfilmler.net": {
+   "name": "KultFilmler",
+   "flags": [
+    "cloudflare",
+    "jsonApi"
+   ],
+   "searchPattern": "/?s=%s",
+   "searchRaw": [
+    "\"/?s=${query}\""
+   ],
+   "mainPages": [
+    [
+     "/category/aile-filmleri-izle",
+     "Aile"
+    ],
+    [
+     "/category/aksiyon-filmleri-izle",
+     "Aksiyon"
+    ],
+    [
+     "/category/animasyon-filmleri-izle",
+     "Animasyon"
+    ],
+    [
+     "/category/belgesel-izle",
+     "Belgesel"
+    ],
+    [
+     "/category/bilim-kurgu-filmleri-izle",
+     "Bilim Kurgu"
+    ],
+    [
+     "/category/biyografi-filmleri-izle",
+     "Biyografi"
+    ],
+    [
+     "/category/dram-filmleri-izle",
+     "Dram"
+    ],
+    [
+     "/category/fantastik-filmleri-izle",
+     "Fantastik"
+    ],
+    [
+     "/category/gerilim-filmleri-izle",
+     "Gerilim"
+    ],
+    [
+     "/category/gizem-filmleri-izle",
+     "Gizem"
+    ],
+    [
+     "/category/kara-filmleri-izle",
+     "Kara"
+    ],
+    [
+     "/category/kisa-film-izle",
+     "Kısa Metrajlı"
+    ],
+    [
+     "/category/komedi-filmleri-izle",
+     "Komedi"
+    ],
+    [
+     "/category/korku-filmleri-izle",
+     "Korku"
+    ],
+    [
+     "/category/macera-filmleri-izle",
+     "Macera"
+    ],
+    [
+     "/category/muzik-filmleri-izle",
+     "Müzik"
+    ],
+    [
+     "/category/polisiye-filmleri-izle",
+     "Polisiye"
+    ],
+    [
+     "/category/politik-filmleri-izle",
+     "Politik"
+    ],
+    [
+     "/category/romantik-filmleri-izle",
+     "Romantik"
+    ],
+    [
+     "/category/savas-filmleri-izle",
+     "Savaş"
+    ],
+    [
+     "/category/spor-filmleri-izle",
+     "Spor"
+    ],
+    [
+     "/category/suc-filmleri-izle",
+     "Suç"
+    ],
+    [
+     "/category/tarih-filmleri-izle",
+     "Tarih"
+    ],
+    [
+     "/category/yerli-filmleri-izle",
+     "Yerli"
+    ]
+   ],
+   "players": [
+    {
+     "class": "YildizKisaFilm",
+     "base": "ExtractorApi",
+     "url": "https://yildizkisafilm.org"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "selcukflix.app": {
+   "name": "SelcukFlix",
+   "flags": [
+    "aes",
+    "cloudflare",
+    "nextData"
+   ],
+   "searchPattern": "/arama?q=%s",
+   "searchRaw": [
+    "searchUrl",
+    "\"/arama?q=$query\""
+   ],
+   "mainPages": [
+    [
+     "/film-izle",
+     "Yeni Eklenen Filmler"
+    ],
+    [
+     "/dizi-izle",
+     "Yeni Diziler"
+    ],
+    [
+     "/trend",
+     "Trendler"
+    ],
+    [
+     "/kesfet",
+     "Keşfet"
+    ],
+    [
+     "/film-kategori/aksiyon",
+     "Aksiyon Filmleri"
+    ],
+    [
+     "/film-kategori/komedi",
+     "Komedi Filmleri"
+    ],
+    [
+     "/film-kategori/suc",
+     "Suç Filmleri"
+    ],
+    [
+     "/film-kategori/animasyon",
+     "Animasyon Filmleri"
+    ],
+    [
+     "/film-kategori/korku",
+     "Korku Filmleri"
+    ],
+    [
+     "/film-kategori/bilim-kurgu",
+     "Bilim Kurgu Filmleri"
+    ],
+    [
+     "/film-kategori/dram",
+     "Dram Filmleri"
+    ],
+    [
+     "/film-kategori/romantik",
+     "Romantik Filmler"
+    ],
+    [
+     "/film-kategori/macera",
+     "Macera Filmleri"
+    ],
+    [
+     "/film-kategori/aile",
+     "Aile Filmleri"
+    ],
+    [
+     "/film-kategori/fantastik",
+     "Fantastik Filmler"
+    ],
+    [
+     "/film-kategori/gerilim",
+     "Gerilim Filmleri"
+    ],
+    [
+     "/film-kategori/gizem",
+     "Gizem Filmleri"
+    ],
+    [
+     "/film-kategori/savas",
+     "Savaş Filmleri"
+    ],
+    [
+     "/film-kategori/western",
+     "Western Filmleri"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [
+    "9bYMCNQiWsXIYFWYAu7EkdsSbmGBTyUI"
+   ],
+   "xrw": "XMLHttpRequest"
+  },
+  "setfilmizle.ltd": {
+   "name": "SetFilmIzle",
+   "flags": [
+    "jsonApi"
+   ],
+   "searchPattern": "/wp-admin/admin-ajax.php?action=stf_live_search&keyword=%s",
+   "searchRaw": [
+    "\"/wp-admin/admin-ajax.php?action=stf_live_search&keyword=${query}\""
+   ],
+   "mainPages": [
+    [
+     "/",
+     "Son Eklenenler"
+    ],
+    [
+     "/turkce-dublaj-filmler/",
+     "Türkçe Dublaj"
+    ],
+    [
+     "/yerli-filmler/",
+     "Yerli Filmler"
+    ],
+    [
+     "/tur/aile/",
+     "Aile"
+    ],
+    [
+     "/tur/aksiyon/",
+     "Aksiyon"
+    ],
+    [
+     "/tur/animasyon/",
+     "Animasyon"
+    ],
+    [
+     "/tur/belgesel/",
+     "Belgesel"
+    ],
+    [
+     "/tur/bilim-kurgu/",
+     "Bilim-Kurgu"
+    ],
+    [
+     "/tur/biyografi/",
+     "Biyografi"
+    ],
+    [
+     "/tur/dini/",
+     "Dini"
+    ],
+    [
+     "/tur/dram/",
+     "Dram"
+    ],
+    [
+     "/tur/fantastik/",
+     "Fantastik"
+    ],
+    [
+     "/tur/genclik/",
+     "Gençlik"
+    ],
+    [
+     "/tur/gerilim/",
+     "Gerilim"
+    ],
+    [
+     "/tur/gizem/",
+     "Gizem"
+    ],
+    [
+     "/tur/komedi/",
+     "Komedi"
+    ],
+    [
+     "/tur/korku/",
+     "Korku"
+    ],
+    [
+     "/tur/macera/",
+     "Macera"
+    ],
+    [
+     "/tur/mini-dizi/",
+     "Mini Dizi"
+    ],
+    [
+     "/tur/muzik/",
+     "Müzik"
+    ],
+    [
+     "/tur/program/",
+     "Program"
+    ],
+    [
+     "/tur/romantik/",
+     "Romantik"
+    ],
+    [
+     "/tur/savas/",
+     "Savaş"
+    ],
+    [
+     "/tur/spor/",
+     "Spor"
+    ],
+    [
+     "/tur/suc/",
+     "Suç"
+    ],
+    [
+     "/tur/tarih/",
+     "Tarih"
+    ],
+    [
+     "/tur/western/",
+     "Western"
+    ]
+   ],
+   "players": [
+    {
+     "class": "FastPlay",
+     "base": "SetPlay",
+     "url": "https://fastplay.mom"
+    },
+    {
+     "class": "SetPlay",
+     "base": "ExtractorApi",
+     "url": "https://setplay.shop"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "sinemacc.com": {
+   "name": "SinemaCX",
+   "flags": [
+    "jsonApi"
+   ],
+   "searchPattern": "/?s=%s",
+   "searchRaw": [
+    "\"/?s=$query\""
+   ],
+   "mainPages": [
+    [
+     "/page/",
+     "Son Eklenen Filmler"
+    ],
+    [
+     "/tur/aile-filmleri/page/",
+     "Aile Filmleri"
+    ],
+    [
+     "/tur/aksiyon-filmleri/page/",
+     "Aksiyon Filmleri"
+    ],
+    [
+     "/tur/animasyon-filmleri/page/",
+     "Animasyon Filmleri"
+    ],
+    [
+     "/tur/belgesel/page/",
+     "Belgesel Filmleri"
+    ],
+    [
+     "/tur/bilim-kurgu-filmleri/page/",
+     "Bilim Kurgu Filmleri"
+    ],
+    [
+     "/tur/biyografi/page/",
+     "Biyografi Filmleri"
+    ],
+    [
+     "/tur/dram-filmleri/page/",
+     "Dram Filmleri"
+    ],
+    [
+     "/tur/fantastik-filmler/page/",
+     "Fantastik Filmler"
+    ],
+    [
+     "/tur/gerilim-filmleri/page/",
+     "Gerilim Filmleri"
+    ],
+    [
+     "/tur/gizem-filmleri/page/",
+     "Gizem Filmleri"
+    ],
+    [
+     "/tur/komedi-filmleri/page/",
+     "Komedi Filmleri"
+    ],
+    [
+     "/tur/korku-filmleri/page/",
+     "Korku Filmleri"
+    ],
+    [
+     "/tur/macera-filmleri/page/",
+     "Macera Filmleri"
+    ],
+    [
+     "/tur/muzikal-filmler/page/",
+     "Müzikal Filmler"
+    ],
+    [
+     "/tur/romantik-filmler/page/",
+     "Romantik Filmler"
+    ],
+    [
+     "/tur/savas-filmleri/page/",
+     "Savaş Filmleri"
+    ],
+    [
+     "/tur/spor-filmleri/page/",
+     "Spor Filmleri"
+    ],
+    [
+     "/tur/suc-filmleri/page/",
+     "Suç Filmleri"
+    ],
+    [
+     "/tur/tarihi-filmler/page/",
+     "Tarih Filmleri"
+    ],
+    [
+     "/tur/western-filmleri/page/",
+     "Western Filmleri"
+    ],
+    [
+     "/tur/yetiskin-filmler/page/",
+     "Yetişkin Filmler"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "sinematv.az": {
+   "name": "SinemaTV.az",
+   "flags": [
+    "jsonApi"
+   ],
+   "searchPattern": "",
+   "searchRaw": [
+    "searchUrl"
+   ],
+   "mainPages": [
+    [
+     "/",
+     "Son Eklenenler"
+    ],
+    [
+     "/film/",
+     "Filmler"
+    ],
+    [
+     "/serial/",
+     "Diziler"
+    ],
+    [
+     "/mult/",
+     "Çizgi Filmler"
+    ],
+    [
+     "/anime/",
+     "Anime"
+    ],
+    [
+     "/boevik/",
+     "Aksiyon"
+    ],
+    [
+     "/horror/",
+     "Korku"
+    ],
+    [
+     "/comedy/",
+     "Komedi"
+    ],
+    [
+     "/drama/",
+     "Dram"
+    ],
+    [
+     "/fantastic/",
+     "Bilim Kurgu"
+    ],
+    [
+     "/turkce-filmler/",
+     "Türkçe Filmler"
+    ],
+    [
+     "/hind-filmleri/",
+     "Hind Filmleri"
+    ],
+    [
+     "/xarici-filmler/",
+     "Xarici Filmler"
+    ],
+    [
+     "/rus-filmleri/",
+     "Rus Filmleri"
+    ],
+    [
+     "/dorama/",
+     "Dorama"
+    ],
+    [
+     "/thriller/",
+     "Triller"
+    ],
+    [
+     "/fantasy/",
+     "Fantastik"
+    ],
+    [
+     "/4k-filmy-i-serialy/",
+     "4K Filmler"
+    ]
+   ],
+   "players": [
+    {
+     "class": "SinemaTVWebViewExtractor",
+     "base": "ExtractorApi",
+     "url": "https://sinematv.az"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": ""
+  },
+  "tavsiyefilmizle.net": {
+   "name": "TavsiyeFilmIzle",
+   "flags": [
+    "aes",
+    "bePlayer",
+    "jsonApi"
+   ],
+   "searchPattern": "/?s=%s",
+   "searchRaw": [
+    "\"/?s=$q\""
+   ],
+   "mainPages": [
+    [
+     "/",
+     "Son Eklenenler"
+    ],
+    [
+     "/category/tavsiye-filmler/",
+     "Tavsiye Filmler"
+    ],
+    [
+     "/category/trendler/",
+     "Popüler Filmler"
+    ],
+    [
+     "/category/en-kaliteli-filmler/",
+     "En Kaliteli Filmler"
+    ],
+    [
+     "/category/mutlaka-izlenmesi-gerekenler/",
+     "Mutlaka İzlenmesi Gerekenler"
+    ],
+    [
+     "/category/aksiyon-filmleri/",
+     "Aksiyon Filmleri"
+    ],
+    [
+     "/category/animasyon-filmleri/",
+     "Animasyon Filmleri"
+    ],
+    [
+     "/category/bilim-kurgu-filmleri/",
+     "Bilim Kurgu Filmleri"
+    ],
+    [
+     "/category/dram-filmleri-hd/",
+     "Dram Filmleri"
+    ],
+    [
+     "/category/fantastik-filmler/",
+     "Fantastik Filmler"
+    ],
+    [
+     "/category/gerilim-filmleri/",
+     "Gerilim Filmleri"
+    ],
+    [
+     "/category/gizem-filmleri/",
+     "Gizem Filmleri"
+    ],
+    [
+     "/category/komedi-filmleri/",
+     "Komedi Filmleri"
+    ],
+    [
+     "/category/korku-filmleri/",
+     "Korku Filmleri"
+    ],
+    [
+     "/category/macera-filmleri/",
+     "Macera Filmleri"
+    ],
+    [
+     "/category/romantik-filmler/",
+     "Romantik Filmler"
+    ],
+    [
+     "/category/suc-filmleri/",
+     "Suç Filmleri"
+    ],
+    [
+     "/category/turkce-altyazili/",
+     "Türkçe Altyazılı"
+    ],
+    [
+     "/category/turkce-dublaj/",
+     "Türkçe Dublaj"
+    ],
+    [
+     "/category/yerli-filmler/",
+     "Yerli Filmler"
+    ],
+    [
+     "/category/netflix-filmleri-izle/",
+     "Netflix Filmleri"
+    ],
+    [
+     "/category/hint-filmleri/",
+     "Hint Filmleri"
+    ],
+    [
+     "/category/dizi-izle/",
+     "Dizi İzle"
+    ]
+   ],
+   "players": [
+    {
+     "class": "HotStream",
+     "base": "ExtractorApi",
+     "url": "https://hotstream.club"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "movies2watch.watch": {
+   "name": "Watch2Movies",
+   "flags": [],
+   "searchPattern": "/search/%s",
+   "searchRaw": [
+    "\"/search/${query}\""
+   ],
+   "mainPages": [
+    [
+     "/genre/action?page=",
+     "Action"
+    ],
+    [
+     "/genre/action-adventure?page=",
+     "Action & Adventure"
+    ],
+    [
+     "/genre/adventure?page=",
+     "Adventure"
+    ],
+    [
+     "/genre/animation?page=",
+     "Animation"
+    ],
+    [
+     "/genre/biography?page=",
+     "Biography"
+    ],
+    [
+     "/genre/comedy?page=",
+     "Comedy"
+    ],
+    [
+     "/genre/crime?page=",
+     "Crime"
+    ],
+    [
+     "/genre/documentary?page=",
+     "Documentary"
+    ],
+    [
+     "/genre/drama?page=",
+     "Drama"
+    ],
+    [
+     "/genre/family?page=",
+     "Family"
+    ],
+    [
+     "/genre/fantasy?page=",
+     "Fantasy"
+    ],
+    [
+     "/genre/history?page=",
+     "History"
+    ],
+    [
+     "/genre/horror?page=",
+     "Horror"
+    ],
+    [
+     "/genre/kids?page=",
+     "Kids"
+    ],
+    [
+     "/genre/music?page=",
+     "Music"
+    ],
+    [
+     "/genre/mystery?page=",
+     "Mystery"
+    ],
+    [
+     "/genre/news?page=",
+     "News"
+    ],
+    [
+     "/genre/reality?page=",
+     "Reality"
+    ],
+    [
+     "/genre/romance?page=",
+     "Romance"
+    ],
+    [
+     "/genre/sci-fi-fantasy?page=",
+     "Sci-Fi & Fantasy"
+    ],
+    [
+     "/genre/science-fiction?page=",
+     "Science Fiction"
+    ],
+    [
+     "/genre/soap?page=",
+     "Soap"
+    ],
+    [
+     "/genre/talk?page=",
+     "Talk"
+    ],
+    [
+     "/genre/thriller?page=",
+     "Thriller"
+    ],
+    [
+     "/genre/tv-movie?page=",
+     "TV Movie"
+    ],
+    [
+     "/genre/war?page=",
+     "War"
+    ],
+    [
+     "/genre/war-politics?page=",
+     "War & Politics"
+    ],
+    [
+     "/genre/western?page=",
+     "Western"
+    ]
+   ],
+   "players": [
+    {
+     "class": "W2MExtractor",
+     "base": "ExtractorApi",
+     "url": ""
+    }
+   ],
+   "aesKeys": [],
+   "xrw": ""
+  },
+  "webteizle.info": {
+   "name": "WebteIzle",
+   "flags": [
+    "cloudflare",
+    "jsonApi"
+   ],
+   "searchPattern": "/filtre?a=%s",
+   "searchRaw": [
+    "\"/filtre?a=${query}\""
+   ],
+   "mainPages": [
+    [
+     "/film-izle/",
+     "Güncel"
+    ],
+    [
+     "/yeni-filmler/",
+     "Yeni"
+    ],
+    [
+     "/tavsiye-filmler/",
+     "Tavsiye"
+    ],
+    [
+     "/filtre/SAYFA?tur=Aile",
+     "Aile"
+    ],
+    [
+     "/filtre/SAYFA?tur=Aksiyon",
+     "Aksiyon"
+    ],
+    [
+     "/filtre/SAYFA?tur=Animasyon",
+     "Animasyon"
+    ],
+    [
+     "/filtre/SAYFA?tur=Belgesel",
+     "Belgesel"
+    ],
+    [
+     "/filtre/SAYFA?tur=Bilim-Kurgu",
+     "Bilim Kurgu"
+    ],
+    [
+     "/filtre/SAYFA?tur=Biyografi",
+     "Biyografi"
+    ],
+    [
+     "/filtre/SAYFA?tur=Dram",
+     "Dram"
+    ],
+    [
+     "/filtre/SAYFA?tur=Fantastik",
+     "Fantastik"
+    ],
+    [
+     "/filtre/SAYFA?tur=Gerilim",
+     "Gerilim"
+    ],
+    [
+     "/filtre/SAYFA?tur=Gizem",
+     "Gizem"
+    ],
+    [
+     "/filtre/SAYFA?tur=Komedi",
+     "Komedi"
+    ],
+    [
+     "/filtre/SAYFA?tur=Korku",
+     "Korku"
+    ],
+    [
+     "/filtre/SAYFA?tur=Macera",
+     "Macera"
+    ],
+    [
+     "/filtre/SAYFA?tur=Romantik",
+     "Romantik"
+    ],
+    [
+     "/filtre/SAYFA?tur=Spor",
+     "Spor"
+    ],
+    [
+     "/filtre/SAYFA?tur=Tarihi",
+     "Tarihi"
+    ],
+    [
+     "/filtre/SAYFA?tur=Western",
+     "Western"
+    ]
+   ],
+   "players": [
+    {
+     "class": "VidMolyBiz",
+     "base": "ExtractorApi",
+     "url": "https://vidmoly.biz"
+    },
+    {
+     "class": "RubyVidHub",
+     "base": "ExtractorApi",
+     "url": "https://rubyvidhub.com"
+    },
+    {
+     "class": "DzenRu",
+     "base": "ExtractorApi",
+     "url": "https://dzen.ru"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "yabancidizi.news": {
+   "name": "YabanciDizi",
+   "flags": [
+    "aes",
+    "cloudflare",
+    "jsonApi"
+   ],
+   "searchPattern": "/search?qr=%s",
+   "searchRaw": [
+    "\"/search?qr=$query\""
+   ],
+   "mainPages": [
+    [
+     "/dizi/tur/aile-izle",
+     "Aile"
+    ],
+    [
+     "/dizi/tur/aksiyon-izle-1",
+     "Aksiyon"
+    ],
+    [
+     "/dizi/tur/bilim-kurgu-izle-1",
+     "Bilim Kurgu"
+    ],
+    [
+     "/dizi/tur/belgesel",
+     "Belgesel"
+    ],
+    [
+     "/dizi/tur/bilim-kurgu-izle-1",
+     "Bilim Kurgu"
+    ],
+    [
+     "/dizi/tur/dram-izle",
+     "Dram"
+    ],
+    [
+     "/dizi/tur/fantastik-izle",
+     "Fantastik"
+    ],
+    [
+     "/dizi/tur/gerilim-izle",
+     "Gerilim"
+    ],
+    [
+     "/dizi/tur/gizem-izle",
+     "Gizem"
+    ],
+    [
+     "/dizi/tur/komedi-izle",
+     "Komedi"
+    ],
+    [
+     "/dizi/tur/korku-izle",
+     "Korku"
+    ],
+    [
+     "/dizi/tur/macera-izle",
+     "Macera"
+    ],
+    [
+     "/dizi/tur/romantik-izle-1",
+     "Dram"
+    ],
+    [
+     "/dizi/tur/suc",
+     "Suç"
+    ],
+    [
+     "/dizi/tur/kore-dizileri",
+     "Kore Dizileri"
+    ],
+    [
+     "/dizi/tur/stand-up",
+     "Stand Up"
+    ]
+   ],
+   "players": [],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest"
+  },
+  "hdfilmcehennemi.nl": {
+   "name": "HDFilmCehennemi",
+   "flags": [
+    "rhino",
+    "aes",
+    "cloudflare",
+    "jsonApi"
+   ],
+   "searchPattern": "/search?q=%s",
+   "xrw": "fetch",
+   "mainPages": [
+    [
+     "/category/film-izle-2/",
+     "Filmler"
+    ],
+    [
+     "/yabancidiziizle-5/",
+     "Yabancı Diziler"
+    ],
+    [
+     "/dil/turkce-dublajli-film-izleyin-6/",
+     "Türkçe Dublaj"
+    ],
+    [
+     "/dil/turkce-altyazili-filmleri-izleme-sitesi-3/",
+     "Türkçe Altyazılı"
+    ],
+    [
+     "/en-cok-begenilen-filmleri-izle-4/",
+     "En Çok Beğenilenler"
+    ],
+    [
+     "/imdb-7-puan-uzeri-filmler-2/",
+     "IMDb 7+"
+    ],
+    [
+     "/tur/aksiyon-filmleri-izleyin-8/",
+     "Aksiyon"
+    ],
+    [
+     "/tur/komedi-filmlerini-izleyin-2/",
+     "Komedi"
+    ],
+    [
+     "/tur/korku-filmlerini-izle-9/",
+     "Korku"
+    ]
+   ],
+   "players": [
+    {
+     "class": "Rapidrame",
+     "base": "legacyArray+rhino+hashPost",
+     "url": "https://hdfilmcehennemi.mobi"
+    }
+   ],
+   "aesKeys": [],
+   "note": "Arama JSON {results:[html]}; oynatıcı rapidrame: anahtar+dizi çözücü, Rhino, /video/ah/ hash POST; nav sekmeleri /video/ → .mobi alanı"
+  },
+  "donkey.to": {
+   "name": "Donkey",
+   "flags": [
+    "tmdbApi",
+    "seedXor"
+   ],
+   "tmdb": "https://db.wecollege.net/3",
+   "searchPattern": "",
+   "mainPages": [],
+   "players": [
+    {
+     "class": "vidy.st/api.wecollege.net",
+     "base": "seed+xor(mvm1)",
+     "url": "https://api.wecollege.net"
+    }
+   ],
+   "aesKeys": [],
+   "xrw": "",
+   "note": "SPA: katalog/arama/detay TMDB aracısından (db.wecollege.net/3). Akış: /seed?mediaId → /{hat}/sources?enc=2 → XOR akış şifresi (siteye özel, ParsGuard kilitli örnek). Altyazı: subtitles.vidy.st/search?id=imdb"
+  },
+  "hotstream.club": {
+   "name": "HotStream",
+   "flags": [
+    "bePlayer"
+   ],
+   "searchPattern": "",
+   "mainPages": [],
+   "players": [],
+   "aesKeys": [],
+   "xrw": "XMLHttpRequest",
+   "note": "bePlayer('parola','{ct,iv,s}') CryptoJS AES → video_location; ext-uzantısız /list|m3u/<blob> HLS"
+  }
+ },
+ "families": {
+  "bePlayer": {
+   "detect": "bePlayer\\s*\\(",
+   "how": "CryptoJS AES JSON {ct,iv,s}, parola ilk argüman → video_location + strSubtitles",
+   "seen": [
+    "hotstream.club",
+    "DiziMom HDMomPlayer",
+    "tavsiyefilmizle.net"
+   ]
+  },
+  "contentx": {
+   "detect": "window\\.openPlayer\\('",
+   "how": "openPlayer(ID) → /source2.php?v=ID → file; hotlinger/dplayer82: m.php→master.m3u8; Dublaj için ikinci ID",
+   "seen": [
+    "dizilla.now",
+    "dizikorea"
+   ]
+  },
+  "getVideo": {
+   "detect": "do=getVideo|player/index\\.php\\?data=",
+   "how": "POST hash → securedLink/videoSources (PeaceMakerst, HDPlayerSystem, PlayerKorea, YildizKisaFilm, HDStreamAble)",
+   "seen": [
+    "ddizimom.net",
+    "dizikorea3.com",
+    "kultfilmler.net",
+    "fullhdfilm"
+   ]
+  },
+  "videoSeyred": {
+   "detect": "videoseyred|/playlist/.+\\.json",
+   "how": "/embed/ID → /playlist/ID.json (sources+tracks)",
+   "seen": [
+    "ddizimom.net",
+    "dizikorea3.com"
+   ]
+  },
+  "rapidCloseLoad": {
+   "detect": "closeload|rapid(rame)?",
+   "how": "packed JS + anahtar/ops/dizi çözücü (Rapidrame legacyArray) + base64(aHR0) yedeği",
+   "seen": [
+    "filmmakinesi.to",
+    "hdfilmcehennemi"
+   ]
+  },
+  "nextSecureData": {
+   "detect": "__NEXT_DATA__|secureData",
+   "how": "Next.js; secureData/response AES-CBC sıfır IV, anahtar sitenin JS'inde sabit (32 karakter)",
+   "seen": [
+    "dizilla.now",
+    "selcukflix.app"
+   ]
+  },
+  "dizipalEnc": {
+   "detect": "data-rm-k|data-cfg",
+   "how": "{c,iv,k1,k2} base64; anahtar = k1 XOR k2, AES-CBC",
+   "seen": [
+    "dizipal"
+   ]
+  },
+  "setPlay": {
+   "detect": "SPG\\.cerceve|SPG_A",
+   "how": "Zaman damgalı FNV imza (x-sp), xor çözme — siteye özel",
+   "seen": [
+    "setfilmizle.ltd"
+   ]
+  },
+  "tmdbApi": {
+   "detect": "/3/(movie|tv|trending|search)/",
+   "how": "JSON API; HTML kartı yok. Katalog/arama/detay JSON'dan, akış ayrı şifreli uç",
+   "seen": [
+    "donkey.to"
+   ]
+  },
+  "iframeBase64": {
+   "detect": "PGltZy",
+   "how": "iframe base64 (başa ters 'BSZtFmcmlGP' eklenebilir)",
+   "seen": [
+    "fullhdfilm"
+   ]
+  },
+  "cloudflare": {
+   "detect": "Just a moment",
+   "how": "CloudflareKiller; arayüz çerezleri; 403/503 sonrası yeniden dene",
+   "seen": [
+    "çoğu site"
+   ]
+  }
+ }
+}

@@ -465,7 +465,7 @@ class @@NAME@@Provider : MainAPI() {
 
     // ---- Genel AES çözücü: sayfa + site JS dosyalarından anahtar adayları toplar, şifreli blokları dener.
     // ---- Kipler: CBC sıfır IV (Dizilla/SelcukFlix), IV öneki, CryptoJS "Salted__", DiziPal c/iv/k1^k2
-    private val aesPool = LinkedHashSet<String>()
+    private val aesPool = LinkedHashSet<String>(listOf<String>(@@KB_KEYS@@))
     private var aesGood: String? = null
     private var aesPoolBuilt = false
 

@@ -322,6 +322,7 @@ return JSON.stringify({ok:1});
 
     @SuppressLint("SetJavaScriptEnabled")
     fun run(act: MainActivity, host: String, origin: String, ua: String, rows: List<AuditRow>, onUpdate: () -> Unit, onDone: () -> Unit) {
+        try { CsBrain.apply(act, host) } catch (_: Exception) { }
         val wv = WebView(act)
         wv.settings.javaScriptEnabled = true
         wv.settings.domStorageEnabled = true
