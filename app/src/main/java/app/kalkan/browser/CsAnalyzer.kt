@@ -101,7 +101,7 @@ var p={};var fr=[];
 each('iframe,[data-embed],[data-video],[data-player]',function(e){
   var u=e.getAttribute('src')||e.getAttribute('data-src')||e.getAttribute('data-embed')||e.getAttribute('data-video')||e.getAttribute('data-player')||'';
   if(u&&!/^(about:|javascript:)/.test(u))fr.push(abs(u));});
-p.iframes=fr.slice(0,6);p.video=!!document.querySelector('video');
+p.iframes=fr.slice(0,6);p.video=!!document.querySelector('video');p.buttons=document.querySelectorAll('[data-video],[data-embed],[data-player]').length;
 var inl=[];Array.prototype.forEach.call(document.scripts,function(s){if(!s.src&&s.textContent)inl.push(s.textContent.slice(0,200000));});
 var T=inl.join('\n').slice(0,600000);
 p.cryptojs=/CryptoJS|crypto-js/.test(T);

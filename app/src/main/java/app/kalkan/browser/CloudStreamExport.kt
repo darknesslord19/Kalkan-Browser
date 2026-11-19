@@ -310,6 +310,7 @@ private fun MainActivity.buildCsZip(
                         }
                     }
                 }
+                tokens["@@XRW@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("xrw").orEmpty().ifEmpty { "XMLHttpRequest" })
                 tokens["@@ROUTER@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("router").orEmpty())
                 tokens["@@SEARCH_CALL@@"] = searchCall
                     ?: ("val url = " + tokens["@@SEARCH_URL@@"] + "\n        val response = app.get(url, referer = mainUrl)")

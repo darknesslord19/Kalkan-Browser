@@ -64,11 +64,28 @@ class @@NAME@@Provider : MainAPI() {
 
     /** Önce düz istek; Cloudflare/403/503 engeli görürse CloudflareKiller ile yeniden dener. */
     private suspend fun fetch(url: String): com.lagradost.nicehttp.NiceResponse {
-        val r = app.get(url, referer = mainUrl)
+        val hdr = mapOf("Accept-Language" to "tr-TR,tr;q=0.9,en;q=0.8")
+        var r = app.get(url, referer = mainUrl, headers = hdr)
         val blocked = r.code == 403 || r.code == 503 || r.text.contains("Just a moment", true) || r.text.contains("cf-browser-verification", true)
-        return if (blocked) app.get(url, referer = mainUrl, interceptor = cfKiller) else r
+        if (blocked) r = app.get(url, referer = mainUrl, headers = hdr, interceptor = cfKiller)
+        followDomain(r.url)
+        return r
     }
 
+    /** Site alan adı değiştirip yönlendiriyorsa (ör. .nl → .mobi) mainUrl'i yeni adrese çeker. */
+    private fun followDomain(finalUrl: String) {
+        try {
+            val h = java.net.URI(finalUrl).host ?: return
+            val cur = java.net.URI(mainUrl).host ?: return
+            val brand = cur.removePrefix("www.").substringBefore('.').take(8)
+            if (h != cur && h.contains(brand, true)) mainUrl = "https://$h"
+        } catch (_: Exception) { }
+    }
+
+    private val xrwValue = "@@XRW@@"
+    private val xhrHeaders: List<Map<String, String>> =
+        listOf(emptyMap<String, String>()) + listOf(xrwValue, "XMLHttpRequest", "fetch").distinct().map { mapOf("X-Requested-With" to it) }
+    private val streamRegex = Regex("(?i)\\.(m3u8|mp4)(\\?|\\$)|/master\\.txt")
     private val routerParam = "@@ROUTER@@"
     private val epRegex = Regex("(?i)(\\d+\\s*\\.?\\s*(bölüm|bolum|sezon|episode|season|ep)\\b|\\b(bölüm|bolum|episode|ep|sezon|season)[\\s-]*\\d+|\\d+\\s*x\\s*\\d+)")
 
@@ -76,7 +93,7 @@ class @@NAME@@Provider : MainAPI() {
     private suspend fun routerBody(url: String): String {
         if (routerParam.isBlank()) return ""
         val u = url + (if (url.contains("?")) "&" else "?") + routerParam
-        return try { app.get(u, referer = mainUrl, headers = mapOf("X-Requested-With" to "XMLHttpRequest")).text } catch (_: Exception) { "" }
+        return try { app.get(u, referer = mainUrl, headers = mapOf("X-Requested-With" to xrwValue)).text } catch (_: Exception) { "" }
     }
 
     private suspend fun routerCards(url: String): List<SearchResponse> = parseSearch(routerBody(url))
@@ -164,7 +181,6 @@ class @@NAME@@Provider : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         // Arama ucu: @@SEARCH_NOTE@@
         val encoded = java.net.URLEncoder.encode(query, "UTF-8")
-        val xhr = mapOf("X-Requested-With" to "XMLHttpRequest")
         val primaryBody = try {
             @@SEARCH_CALL@@
             response.text
@@ -173,7 +189,7 @@ class @@NAME@@Provider : MainAPI() {
         if (results.isEmpty()) {
             for (p in searchFallbacks) {
                 val u = mainUrl + p.replace("%s", encoded)
-                for (h in listOf(emptyMap(), xhr)) {
+                for (h in xhrHeaders) {
                     val body = try { app.get(u, referer = mainUrl, headers = h).text } catch (_: Exception) { "" }
                     results = parseSearch(body)
                     if (results.isNotEmpty()) return results
@@ -266,11 +282,16 @@ class @@NAME@@Provider : MainAPI() {
                 .mapNotNull { el -> attrs.firstNotNullOfOrNull { k -> el.attr(k).takeIf { it.isNotBlank() } } }
                 .map { fixUrl(it) }.distinct()
             for (frame in frames) {
-                if (loadExtractor(frame, referer, subtitleCallback, callback)) {
-                    found = true
-                } else {
-                    val inner = runCatching { app.get(frame, referer = referer).text }.getOrNull() ?: continue
-                    if (scanSource(inner, null, frame, depth + 1, subtitleCallback, callback)) found = true
+                if (loadExtractor(frame, referer, subtitleCallback, callback)) { found = true; continue }
+                val inner = runCatching { app.get(frame, referer = referer).text }.getOrNull()
+                if (inner != null && scanSource(inner, null, frame, depth + 1, subtitleCallback, callback)) { found = true; continue }
+                // Son çare: oynatıcıyı gerçek bir WebView'da çalıştırıp ağdaki m3u8/mp4 isteğini yakala
+                // (karmaşık/gizlenmiş oynatıcı betiklerini kendimiz çözmek yerine tarayıcıya çözdürür)
+                if (depth == 0 && !found) {
+                    val got = runCatching {
+                        app.get(frame, referer = referer, interceptor = com.lagradost.cloudstream3.network.WebViewResolver(streamRegex)).url
+                    }.getOrNull()
+                    if (got != null && streamRegex.containsMatchIn(got) && emitStreams(got, frame, callback)) found = true
                 }
             }
         }
@@ -293,6 +314,10 @@ class @@NAME@@Provider : MainAPI() {
                 this.headers = hdr
                 this.quality = Qualities.Unknown.value
             })
+            ok = true
+        }
+        Regex("https?:[^\"'\\s<>\\\\]+/master\\.txt[^\"'\\s<>\\\\]*").findAll(src).map { it.value }.distinct().forEach { u ->
+            M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
             ok = true
         }
         return ok

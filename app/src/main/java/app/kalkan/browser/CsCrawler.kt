@@ -23,10 +23,11 @@ internal object CsCrawler {
     val SEARCH_JS = """
 (function(phrase){try{
 window.__kq=[];
-var of=window.fetch;if(of)window.fetch=function(u,o){try{window.__kq.push([(o&&o.method)||'GET',(typeof u==='string'?u:(u&&u.url)||''),(o&&o.body)?String(o.body):'']);}catch(e){}return of.apply(this,arguments);};
-var ox=XMLHttpRequest.prototype.open,os=XMLHttpRequest.prototype.send;
+var of=window.fetch;if(of)window.fetch=function(u,o){try{var hh=(o&&o.headers)||{};var xx=hh.get?hh.get('X-Requested-With'):(hh['X-Requested-With']||hh['x-requested-with']);window.__kq.push([(o&&o.method)||'GET',(typeof u==='string'?u:(u&&u.url)||''),(o&&o.body)?String(o.body):'',xx||'']);}catch(e){}return of.apply(this,arguments);};
+var ox=XMLHttpRequest.prototype.open,os=XMLHttpRequest.prototype.send,oh=XMLHttpRequest.prototype.setRequestHeader;
 XMLHttpRequest.prototype.open=function(m,u){this.__m=m;this.__u=u;return ox.apply(this,arguments);};
-XMLHttpRequest.prototype.send=function(b){try{window.__kq.push([this.__m||'GET',this.__u||'',b?String(b):'']);}catch(e){}return os.apply(this,arguments);};
+XMLHttpRequest.prototype.setRequestHeader=function(k,v){try{if(/^x-requested-with$/i.test(k))this.__x=v;}catch(e){}return oh.apply(this,arguments);};
+XMLHttpRequest.prototype.send=function(b){try{window.__kq.push([this.__m||'GET',this.__u||'',b?String(b):'',this.__x||'']);}catch(e){}return os.apply(this,arguments);};
 var sel='input[type=search],input[name=s],input[name=q],input[name=query],input[name=search],input[name=keyword],input[name=story],input[name=term],input[name=arama],input[placeholder*="ara" i],input[placeholder*="search" i],input[id*="search" i],input[class*="search" i],input[aria-label*="ara" i],input[aria-label*="search" i]';
 var si=document.querySelector(sel);
 if(!si){var SR=/(search|arama|\bara\b|find|query)/i;
@@ -132,9 +133,9 @@ return JSON.stringify({ok:1});
 
 
     /** Sayfanın kendi bağlamında (çerezler, Cloudflare geçişi dahil) fetch eder; sonucu yoklayarak bekler. */
-    private fun pageFetch(wv: WebView, url: String, cb: (Int, String) -> Unit) {
+    private fun pageFetch(wv: WebView, url: String, xrw: String = "XMLHttpRequest", cb: (Int, String) -> Unit) {
         val id = "k" + System.nanoTime()
-        val js = "(function(u,id){window.__pf=window.__pf||{};try{fetch(u,{credentials:'include',headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/html,application/json,*/*'}}).then(function(r){return r.text().then(function(t){window.__pf[id]={c:r.status,t:t.slice(0,400000)};});}).catch(function(e){window.__pf[id]={c:0,t:''};});}catch(e){window.__pf[id]={c:0,t:''};}})(" +
+        val js = "(function(u,id){window.__pf=window.__pf||{};try{fetch(u,{credentials:'include',headers:{'X-Requested-With':" + JSONObject.quote(xrw).replace("\"", "'") + ",'Accept':'text/html,application/json,*/*'}}).then(function(r){return r.text().then(function(t){window.__pf[id]={c:r.status,t:t.slice(0,400000)};});}).catch(function(e){window.__pf[id]={c:0,t:''};});}catch(e){window.__pf[id]={c:0,t:''};}})(" +
             JSONObject.quote(url) + "," + JSONObject.quote(id) + ")"
         wv.evaluateJavascript(js, null)
         var tries = 0
@@ -148,21 +149,32 @@ return JSON.stringify({ok:1});
         H.postDelayed({ poll() }, 300)
     }
 
-    private fun webCheck(wv: WebView, origin: String, pattern: String, phrase: String, cb: (Boolean) -> Unit) {
+    /** Arama kalıbını sayfa içinde dener; hangi X-Requested-With değeriyle (XMLHttpRequest / fetch) çalıştığını da bulur. */
+    private fun webCheck(wv: WebView, host: String, origin: String, pattern: String, phrase: String, cb: (Boolean) -> Unit) {
         val q = URLEncoder.encode(phrase, "UTF-8").replace("+", "%20")
         val needle = CsSearch.fold(phrase)
-        pageFetch(wv, origin + pattern.replace("%s", q)) { c, t ->
-            if (c != 200 || !CsSearch.fold(t).contains(needle)) { cb(false); return@pageFetch }
-            pageFetch(wv, origin + pattern.replace("%s", "zqxjkw")) { c2, t2 -> cb(!(c2 == 200 && CsSearch.fold(t2).contains(needle))) }
+        val known = CsHints.load(host).optJSONObject("misc")?.optString("xrw").orEmpty()
+        val xs = listOfNotNull(known.ifEmpty { null }, "XMLHttpRequest", "fetch").distinct()
+        fun tryX(i: Int) {
+            if (i >= xs.size) { cb(false); return }
+            val x = xs[i]
+            pageFetch(wv, origin + pattern.replace("%s", q), x) { c, t ->
+                if (c != 200 || !CsSearch.fold(t).contains(needle)) { tryX(i + 1); return@pageFetch }
+                pageFetch(wv, origin + pattern.replace("%s", "zqxjkw"), x) { c2, t2 ->
+                    if (c2 == 200 && CsSearch.fold(t2).contains(needle)) tryX(i + 1)
+                    else { CsHints.set(host, "misc", "xrw", x); cb(true) }
+                }
+            }
         }
+        tryX(0)
     }
 
-    private fun webProbe(wv: WebView, origin: String, phrase: String, cb: (String?) -> Unit) {
+    private fun webProbe(wv: WebView, host: String, origin: String, phrase: String, cb: (String?) -> Unit) {
         val t0 = System.currentTimeMillis()
         val list = CsSearch.PATTERNS
         fun next(i: Int) {
-            if (i >= list.size || System.currentTimeMillis() - t0 > 60_000) { cb(null); return }
-            webCheck(wv, origin, list[i], phrase) { ok -> if (ok) cb(list[i]) else next(i + 1) }
+            if (i >= list.size || System.currentTimeMillis() - t0 > 75_000) { cb(null); return }
+            webCheck(wv, host, origin, list[i], phrase) { ok -> if (ok) cb(list[i]) else next(i + 1) }
         }
         next(0)
     }
@@ -205,12 +217,17 @@ return JSON.stringify({ok:1});
             val parts = ArrayList<String>()
             p.optJSONArray("iframes")?.length()?.takeIf { it > 0 }?.let { parts += "$it iframe" }
             if (p.optBoolean("video")) parts += "video etiketi"
+            p.optInt("buttons").takeIf { it > 0 }?.let { parts += "$it alternatif kaynak düğmesi" }
             p.optJSONArray("m3u8")?.length()?.takeIf { it > 0 }?.let { parts += "$it m3u8" }
             if (p.optBoolean("packed")) parts += "packed JS (otomatik çözülecek)"
             if (p.optBoolean("cryptojs") || p.optBoolean("aes")) parts += "AES/CryptoJS (otomatik çözülecek)"
             set("player", St.OK, parts.joinToString(" · "))
         } else if ("detail" in scanned) set("player", St.WARN, "Oynatıcı sayfada görünmedi (tıklayınca yükleniyor olabilir). Eklenti çalışma anında iframe, m3u8, packed JS ve CryptoJS zincirini dener.")
         else set("player", St.WARN, "Oynatıcı taranamadı.")
+        val stream = p?.optString("stream").orEmpty()
+        if (stream.isNotEmpty()) set("video", St.OK, "Yakalandı: $stream. Çözülemeyen oynatıcılarda eklenti WebView ile aynısını yapacak.")
+        else if ("video" in scanned) set("video", St.AUTO, "Otomatik yakalanamadı (oynatıcı tıklama ya da başka alan adı bekliyor olabilir). Eklenti çalışma anında WebView ile yakalamayı deneyecek.")
+        else set("video", St.WAIT, "")
         val s = h.optJSONObject("search")
         if (s != null && s.optString("pattern").isNotEmpty()) {
             if (s.optBoolean("verified")) set("search", St.OK, "Sitede gerçek arama yapılıp doğrulandı · ${s.optString("pattern")}")
@@ -223,6 +240,7 @@ return JSON.stringify({ok:1});
         var st = St.OK
         if (m?.optBoolean("cloudflare") == true) { notes += "Cloudflare koruması var → CloudflareKiller otomatik devrede"; st = St.AUTO }
         if (m != null && m.optString("router").isNotEmpty()) { notes += "İçerik JSON uç noktasından da geliyor (?${m.optString("router")}) → yedek olarak kullanılacak"; st = St.AUTO }
+        if (m != null && m.optString("xrw").isNotEmpty()) notes += "Site JSON isteklerinde X-Requested-With: ${m.optString("xrw")} bekliyor → eklenti aynısını gönderecek"
         if (m?.optBoolean("unreachable") == true) { notes += "Siteye telefondan ulaşılamadı"; st = St.WARN }
         set("net", st, notes.joinToString("\n").ifEmpty { "Engel yok, düz istekler yeterli." })
     }
@@ -273,7 +291,7 @@ return JSON.stringify({ok:1});
                 val params = listOf("router=1", "json=1", "ajax=1", "format=json")
                 fun probe(i: Int) {
                     if (i >= params.size) { finish(); return }
-                    pageFetch(wv, "$origin/?" + params[i]) { c, t ->
+                    pageFetch(wv, "$origin/?" + params[i], CsHints.load(host).optJSONObject("misc")?.optString("xrw").orEmpty().ifEmpty { "XMLHttpRequest" }) { c, t ->
                         val b = t.trimStart()
                         if (c == 200 && (b.startsWith("{") || b.startsWith("[")) && b.length > 40) {
                             CsHints.merge(host, JSONObject().put("misc", JSONObject().put("router", params[i]))); finish()
@@ -305,6 +323,10 @@ return JSON.stringify({ok:1});
                             val href = o?.optString("href").orEmpty()
                             val kq = o?.optJSONArray("q")
                             val found = derive(origin, "$origin/", href, kq, phrase)
+                            if (kq != null) for (qi in 0 until kq.length()) {
+                                val x = kq.optJSONArray(qi)?.optString(3).orEmpty()
+                                if (x.isNotEmpty()) { CsHints.set(host, "misc", "xrw", x); break }
+                            }
                             row("search").note = "Doğrulanıyor…"; onUpdate()
                             fun save(res: JSONObject?) {
                                 if (res != null) CsHints.merge(host, JSONObject().put("search", res))
@@ -312,12 +334,12 @@ return JSON.stringify({ok:1});
                             }
                             fun probeAll() {
                                 row("search").note = "Yaygın adresler deneniyor…"; onUpdate()
-                                webProbe(wv, origin, phrase) { p ->
+                                webProbe(wv, host, origin, phrase) { p ->
                                     save(if (p != null) JSONObject().put("pattern", p).put("verified", true).put("how", "probe") else found)
                                 }
                             }
                             if (found != null && found.optString("pattern").isNotEmpty()) {
-                                webCheck(wv, origin, found.optString("pattern"), phrase) { ok ->
+                                webCheck(wv, host, origin, found.optString("pattern"), phrase) { ok ->
                                     if (ok) save(found.put("verified", true)) else probeAll()
                                 }
                             } else if (found != null) save(found) else probeAll()
@@ -327,14 +349,47 @@ return JSON.stringify({ok:1});
             }
         }
 
+        // ---- video akışı: oynatıcı sayfasını WebView'da açıp gerçek m3u8/mp4 isteğini yakalar
+        fun videoStage() {
+            val pl = CsHints.load(host).optJSONObject("player")
+            val frame = pl?.optJSONArray("iframes")?.optString(0).orEmpty()
+            if (frame.isEmpty() || !frame.startsWith("http")) { scanned.add("video"); refresh(); searchStage(); return }
+            begin("video", "Oynatıcı açılıyor, video isteği bekleniyor…")
+            val hit = java.util.concurrent.atomic.AtomicReference<String?>(null)
+            val re = Regex("(?i)\\.(m3u8|mp4)(\\?|$)|/master\\.txt|/playlist\\.m3u8")
+            wv.webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView, request: android.webkit.WebResourceRequest): android.webkit.WebResourceResponse? {
+                    val u = request.url.toString()
+                    if (hit.get() == null && re.containsMatchIn(u)) hit.set(u)
+                    return null
+                }
+                override fun onPageFinished(view: WebView, u: String?) {
+                    view.evaluateJavascript("(function(){try{var e=document.querySelector('.jw-icon-display,.vjs-big-play-button,.plyr__control--overlaid,button[class*=play],[class*=play-btn],video');if(e&&e.click)e.click();var v=document.querySelector('video');if(v&&v.play)v.play();}catch(x){}})()", null)
+                }
+            }
+            var waited = 0
+            fun wait() {
+                if (hit.get() != null || waited >= 14000) {
+                    val u = hit.get()
+                    if (u != null) {
+                        val kind = if (u.contains(".mp4", true)) "mp4" else "m3u8"
+                        CsHints.set(host, "player", "stream", Uri.parse(u).host + " · " + kind)
+                    }
+                    scanned.add("video"); refresh(); searchStage()
+                } else { waited += 500; H.postDelayed({ wait() }, 500) }
+            }
+            wv.loadUrl(frame, mapOf("Referer" to "$origin/"))
+            H.postDelayed({ wait() }, 1500)
+        }
+
         // ---- 3) bölüm / oynatıcı
         fun episodeStage() {
             val d = CsHints.load(host).optJSONObject("detail")
             val ep = d?.optJSONArray("epLinks")?.optString(0).orEmpty()
-            if (ep.isEmpty()) { searchStage(); return }
+            if (ep.isEmpty()) { videoStage(); return }
             begin("player", "İlk bölüm açılıyor…")
             load(wv, ep, 2500, 22000) {
-                analyze(wv, host) { scanned.add("episode"); refresh(); searchStage() }
+                analyze(wv, host) { scanned.add("episode"); refresh(); videoStage() }
             }
         }
 
@@ -342,7 +397,7 @@ return JSON.stringify({ok:1});
         fun detailStage() {
             val l = CsHints.load(host).optJSONObject("list")
             val link = l?.optJSONArray("links")?.optString(0).orEmpty()
-            if (link.isEmpty()) { refresh(); searchStage(); return }
+            if (link.isEmpty()) { refresh(); videoStage(); return }
             begin("detail", "İlk film/dizi sayfası açılıyor…")
             load(wv, link, 2500, 22000) {
                 analyze(wv, host) {
@@ -386,6 +441,7 @@ internal fun MainActivity.csScanPanel(t: MainActivity.Tab, continueLabel: String
         AuditRow("detail", "Film / dizi detayı"),
         AuditRow("episodes", "Bölüm listesi"),
         AuditRow("player", "Oynatıcı ve video kaynağı"),
+        AuditRow("video", "Video akışı (gerçek istek)"),
         AuditRow("search", "Arama"),
         AuditRow("net", "Koruma ve JSON uçları")
     )
