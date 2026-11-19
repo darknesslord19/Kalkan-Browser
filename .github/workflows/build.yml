@@ -3,6 +3,9 @@ name: APK Derle
 on:
   push:
     branches: [main]
+    # cs3-inbox'a yüklenen eklenti ZIP'leri APK derlemesini tetiklemesin
+    paths-ignore:
+      - 'cs3-inbox/**'
   workflow_dispatch:
 
 permissions:

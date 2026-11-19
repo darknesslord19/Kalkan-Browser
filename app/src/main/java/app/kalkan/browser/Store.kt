@@ -330,7 +330,7 @@ object Store {
     fun scriptsFor(host: String): List<UserScript> = scriptList().filter { it.on && scriptMatches(it, host) }
 
     // ---------- Yedekleme ----------
-    private val NO_BACKUP = setOf("session", "session_index", "wg_config", "wg_name", "dns_vpn_on")
+    private val NO_BACKUP = setOf("session", "session_index", "wg_config", "wg_name", "dns_vpn_on", "gh_token")
 
     fun exportJson(): String {
         val p = JSONObject()

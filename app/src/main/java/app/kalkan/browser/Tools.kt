@@ -296,6 +296,7 @@ internal fun MainActivity.showTools() {
         badge = { current?.let { c -> synchronized(c.apis) { c.apis.size } } ?: 0 }) { showApis() }
     tile(dev, R.drawable.ic_cs, "CS analizi", sub = { current?.let { c -> CsHints.load(c.pageHost).let { h -> if (h.length() > 0) "kayıtlı" else null } } }) { analyzeCsPageAndShow() }
     tile(dev, R.drawable.ic_cs, "CloudStream iskeleti") { exportCloudStream() }
+    tile(dev, R.drawable.ic_cs, "CS3 GitHub ayarı", sub = { if (GhBuild.configured()) GhBuild.repo else "bağlı değil" }) { ghSettings() }
     tile(dev, R.drawable.ic_network, "Ağ kaydı") { showNetwork() }
     tile(dev, R.drawable.ic_cookie, "Çerez & depolama") { showStorage() }
     tile(dev, R.drawable.ic_extension, "Betikler",

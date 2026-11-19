@@ -212,6 +212,8 @@ private fun MainActivity.buildCsZip(
         toast("Eklenti iskeleti hazırlanıyor…")
         val ua = t.webView.settings.userAgentString ?: "Mozilla/5.0"
         Thread {
+            var zipBytes: ByteArray? = null
+            var zipFileName = ""
             val msg = try {
                 val date = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr")).format(Date())
                 val pkg = "com." + CsGen.pkgPart(author) + "." + CsGen.pkgPart(name)
@@ -365,6 +367,8 @@ private fun MainActivity.buildCsZip(
                 }
                 val zipName = "$root.zip"
                 Saver.save(this, zipName, "application/zip") { it.write(bos.toByteArray()) }
+                zipBytes = bos.toByteArray()
+                zipFileName = zipName
                 "Kaydedildi: İndirilenler/Kalkan/$zipName · ${apiEps.size} uç eklendi"
             } catch (e: Exception) {
                 "İskelet oluşturulamadı: ${e.message}"
@@ -373,10 +377,14 @@ private fun MainActivity.buildCsZip(
                 MaterialAlertDialogBuilder(this)
                     .setTitle("CloudStream iskeleti")
                     .setMessage(msg + if (msg.startsWith("Kaydedildi"))
-                        "\n\nZIP'i açıp içeriğini boş bir GitHub deposuna yükle; Actions .cs3 dosyasını derler. Ayrıntılar README.md'de."
+                        "\n\n\u201CDerle ve .cs3 indir\u201D ile Kalkan ZIP'i GitHub'a yükleyip derletir ve .cs3 dosyasını otomatik indirir."
                     else "")
                     .setPositiveButton("Tamam", null)
                     .setNeutralButton("İndirilenler") { _, _ -> openSystemDownloads() }
+                    .apply {
+                        val zb = zipBytes
+                        if (zb != null) setNegativeButton("Derle ve .cs3 indir") { _, _ -> ghBuildZip(zb, name, zipFileName) }
+                    }
                     .show()
             }
         }.start()
