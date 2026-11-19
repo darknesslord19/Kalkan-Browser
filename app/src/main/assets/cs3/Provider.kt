@@ -44,7 +44,8 @@ class @@NAME@@Provider : MainAPI() {
         val resp = fetch(url)
         var items = findCards(resp.document)
         if (items.isEmpty()) items = routerCards(url)
-        if (items.isEmpty() && page <= 1) throw ErrorLoadingException("Kart bulunamadı (HTTP ${resp.code}, ${resp.text.length} bayt): ${resp.text.take(90).replace('\n', ' ')}")
+        if (items.isEmpty()) items = deepCards(resp.document)
+        if (items.isEmpty() && page <= 1) throw ErrorLoadingException("Kart bulunamadı (HTTP ${resp.code}, ${resp.text.length} bayt, a=${resp.document.select("a[href]").size} img=${resp.document.select("img").size} json=${resp.document.select("script#__NEXT_DATA__, script[type=application/json]").size}): ${resp.document.title().take(60)} | ${resp.document.body()?.text().orEmpty().take(80)}")
         return newHomePageResponse(request, items, hasNext = items.isNotEmpty())
     }
 
@@ -194,16 +195,16 @@ class @@NAME@@Provider : MainAPI() {
                 val arr = ArrayList<org.json.JSONObject>()
                 fun walk(n: Any?) {
                     when (n) {
-                        is org.json.JSONObject -> { if ((n.has("title") || n.has("name")) && (n.has("url") || n.has("link") || n.has("slug") || n.has("uri"))) arr.add(n) else n.keys().forEach { walk(n.opt(it)) } }
+                        is org.json.JSONObject -> { if (listOf("title", "name", "object_name", "original_title", "culture_title", "used_title").any { n.has(it) } && listOf("url", "link", "uri", "slug", "used_slug", "permalink", "href").any { n.has(it) }) arr.add(n) else n.keys().forEach { walk(n.opt(it)) } }
                         is org.json.JSONArray -> for (i in 0 until n.length()) walk(n.opt(i))
                     }
                 }
                 walk(if (t.startsWith("[")) org.json.JSONArray(t) else org.json.JSONObject(t))
                 val res = arr.mapNotNull { o ->
-                    val ttl = o.optString("title").ifBlank { o.optString("name") }.trim()
-                    val raw = listOf("url", "link", "uri", "slug").map { o.optString(it) }.firstOrNull { it.isNotBlank() } ?: return@mapNotNull null
+                    val ttl = listOf("title", "name", "object_name", "culture_title", "original_title", "used_title").map { o.optString(it) }.firstOrNull { it.isNotBlank() }.orEmpty().trim()
+                    val raw = listOf("url", "link", "uri", "used_slug", "slug", "permalink", "href").map { o.optString(it) }.firstOrNull { it.isNotBlank() } ?: return@mapNotNull null
                     val href = fixUrlNull(raw) ?: return@mapNotNull null
-                    val img = listOf("poster", "image", "img", "thumb", "thumbnail", "cover").map { o.optString(it) }.firstOrNull { it.isNotBlank() }
+                    val img = listOf("poster", "image", "img", "thumb", "thumbnail", "cover", "poster_url", "object_poster_url", "image_url", "poster_path").map { o.optString(it) }.firstOrNull { it.isNotBlank() }
                     if (ttl.isBlank()) null else newMovieSearchResponse(ttl, href, TvType.Movie) { this.posterUrl = fixUrlNull(img) }
                 }
                 if (res.isNotEmpty()) return res.distinctBy { it.url }
@@ -533,6 +534,53 @@ class @@NAME@@Provider : MainAPI() {
     private suspend fun aesUnwrap(body: String): String {
         val m = Regex("\"(?:response|data|secureData|payload|encrypted|result)\"\\s*:\\s*\"([A-Za-z0-9+/=_-]{32,})\"").find(body) ?: return body
         return aesSweep("\"" + m.groupValues[1] + "\"", mainUrl, null).firstOrNull() ?: body
+    }
+
+    /** Kart seçici işe yaramazsa: gömülü JSON (__NEXT_DATA__, şifreliyse çözerek), satır içi JSON ve tekrar eden bağlantı grubu. */
+    private suspend fun deepCards(doc: org.jsoup.nodes.Document): List<SearchResponse> {
+        val host = try { java.net.URI(mainUrl).host.removePrefix("www.") } catch (_: Exception) { "" }
+        val brand = host.substringBefore('.')
+        // 1) gömülü JSON
+        val blobs = doc.select("script#__NEXT_DATA__, script[type=application/json], script[type=application/ld+json], script:not([src])").map { it.data() }
+            .filter { it.length > 200 && (it.contains("\"title\"") || it.contains("\"name\"") || it.contains("secureData") || it.contains("\"slug\"") || it.contains("\"response\"")) }
+        for (b in blobs.take(12)) {
+            val candidates = ArrayList<String>()
+            candidates.add(aesUnwrap(b))
+            candidates.add(b)
+            val s = b.indexOf('{'); val e = b.lastIndexOf('}')
+            if (s >= 0 && e > s) candidates.add(b.substring(s, e + 1))
+            val s2 = b.indexOf('['); val e2 = b.lastIndexOf(']')
+            if (s2 >= 0 && e2 > s2) candidates.add(b.substring(s2, e2 + 1))
+            for (c in candidates.distinct()) {
+                val t = c.trim()
+                if (!(t.startsWith("{") || t.startsWith("["))) continue
+                val r = runCatching { parseSearch(t) }.getOrDefault(emptyList())
+                if (r.size >= 3) return r
+            }
+        }
+        // 2) Tekrar eden bağlantı grubu (görselsiz de olabilir)
+        val links = doc.select("a[href]").filter { a ->
+            val h = fixUrlNull(a.attr("href")) ?: return@filter false
+            val u = runCatching { java.net.URI(h) }.getOrNull() ?: return@filter false
+            (u.host ?: "").contains(brand, true) && (u.path ?: "").length > 3 && !badPath.containsMatchIn(u.path ?: "") &&
+                !Regex("(?i)\\.(css|js|png|jpe?g|webp|svg|ico|xml)$").containsMatchIn(u.path ?: "")
+        }
+        val groups = links.groupBy { (it.parent()?.tagName() ?: "") + "." + (it.parent()?.className() ?: "").split(" ").firstOrNull().orEmpty() + "/" + it.className().split(" ").firstOrNull().orEmpty() }
+        val best = groups.values.filter { g -> g.map { it.attr("href") }.distinct().size >= 6 }.maxByOrNull { g -> g.count { it.selectFirst("img") != null || it.hasAttr("style") || it.attr("title").isNotBlank() } * 100 + g.size }
+        if (best != null) {
+            val res = best.mapNotNull { a ->
+                val href = fixUrlNull(a.attr("href")) ?: return@mapNotNull null
+                val img = a.selectFirst("img") ?: a.parent()?.selectFirst("img")
+                val title = (a.attr("title").ifBlank { null } ?: img?.attr("alt")?.ifBlank { null } ?: a.text().trim().ifBlank { null }
+                    ?: a.parent()?.selectFirst("h1,h2,h3,h4,h5,strong")?.text()?.trim()?.ifBlank { null })?.replace(Regex("(?i)\\s*izle\\s*$"), "")?.trim() ?: return@mapNotNull null
+                if (title.length < 2) return@mapNotNull null
+                val bg = Regex("url\\(['\"]?([^)'\"]+)").find(a.attr("style") + " " + (a.selectFirst("[style*=url]")?.attr("style") ?: ""))?.groupValues?.get(1)
+                val poster = listOf("data-src", "data-original", "data-lazy-src", "src").map { img?.attr(it).orEmpty() }.firstOrNull { it.isNotBlank() && !it.startsWith("data:") } ?: bg
+                newMovieSearchResponse(title, href, TvType.Movie) { this.posterUrl = fixUrlNull(poster) }
+            }.distinctBy { it.url }
+            if (res.size >= 3) return res
+        }
+        return emptyList()
     }
 
     /** Sayfa betiklerini Rhino ile çalıştırıp (sahte DOM ile) oluşan değişkenlerden / jwplayer.setup'tan akış adreslerini toplar. */
