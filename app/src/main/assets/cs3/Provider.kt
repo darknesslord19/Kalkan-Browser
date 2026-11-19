@@ -64,8 +64,7 @@ class @@NAME@@Provider : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         // Arama ucu: @@SEARCH_NOTE@@
-        val url = @@SEARCH_URL@@
-        val response = app.get(url, referer = mainUrl)
+        @@SEARCH_CALL@@
         // Yanıt JSON ise bir data class tanımlayıp şöyle okuyabilirsin:
         // val json = response.parsedSafe<AramaYaniti>()
         return response.document.select(cardSelector).mapNotNull { it.toSearchResult() }.distinctBy { it.url }

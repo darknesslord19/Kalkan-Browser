@@ -54,7 +54,10 @@ if(best){
   var pa='src',pas=['data-src','data-lazy-src','data-original','data-lazy','src'];
   for(var q=0;q<pas.length;q++){var v=img&&img.getAttribute(pas[q]);if(v&&v.indexOf('data:')!==0){pa=pas[q];break;}}
   out.list={card:best.sel,title:ts,posterAttr:pa,count:best.n,matches:best.m,
-    sample:best.items.slice(0,3).map(function(x){return (x.h.textContent||'').trim().replace(/\s+/g,' ').slice(0,50);})};
+    sample:best.items.slice(0,3).map(function(x){return (x.h.textContent||'').trim().replace(/\s+/g,' ').slice(0,50);}),
+    titles:best.items.slice(0,8).map(function(x){var e=ts?x.h.querySelector(ts):null;var t=(e&&e.textContent||'').trim();
+      if(!t){var im=x.a.querySelector('img');t=im?(im.getAttribute('alt')||''):'';}return t.replace(/\s+/g,' ').trim();})
+      .filter(function(t){return t.length>=4;}).slice(0,3)};
 }
 
 // ---- 2) Detay sayfası
@@ -106,11 +109,14 @@ p.scripts=ss.slice(0,10);
 if(p.iframes.length||p.video||p.cryptojs||p.aes||p.packed||p.m3u8.length)out.player=p;
 
 // ---- 4) Arama formu ve menü
-var sf=null;
-Array.prototype.forEach.call(document.forms,function(f){if(sf)return;
-  var i=f.querySelector('input[name=s],input[name=q],input[name=query],input[name=search],input[name=keyword],input[name=k],input[name=term],input[name=arama]');
-  if(i){try{sf={param:i.name,path:new URL(f.getAttribute('action')||location.pathname,location.href).pathname};}catch(e){}}});
-if(sf)out.search=sf;
+var si=document.querySelector('input[type=search],input[name=s],input[name=q],input[name=query],input[name=search],input[name=keyword],input[name=story],input[name=term],input[name=arama],input[placeholder*="ara" i],input[placeholder*="search" i],input[name*="search" i]');
+if(si&&si.name){
+  var f=si.form;
+  if(f){var prm={};Array.prototype.forEach.call(f.elements,function(e){if(e.name&&e!==si&&e.type==='hidden')prm[e.name]=e.value;});
+    var pth2='/';try{pth2=new URL(f.getAttribute('action')||location.pathname,location.href).pathname;}catch(e){}
+    out.search={param:si.name,path:pth2,method:(f.method||'get').toLowerCase(),params:prm};
+  }else out.searchInput={name:si.name,placeholder:(si.placeholder||'').slice(0,30)};
+}else if(si)out.searchInput={name:'',placeholder:(si.placeholder||'').slice(0,30)};
 var nav=[],seen={};
 each('nav a[href],header a[href]',function(a){var t=(a.textContent||'').trim().replace(/\s+/g,' ');
   if(!t||t.length>30||!same(a))return;var pth=new URL(a.href,location.href).pathname;
@@ -166,7 +172,12 @@ object CsHints {
             append("\n${ok(d?.optString("episodes").orEmpty().isNotEmpty())} Bölüm listesi" + (d?.optInt("episodeCount")?.takeIf { it > 0 }?.let { " ($it bölüm)" } ?: " — dizi detay sayfasında analiz et"))
             append("\n${ok(d != null && d.optBoolean("ogTitle") || d?.optString("title").orEmpty().isNotEmpty())} Detay sayfası")
             append("\n${ok(p != null)} Oynatıcı" + (p?.optJSONArray("iframes")?.length()?.takeIf { it > 0 }?.let { " ($it iframe)" } ?: " — bölüm/film sayfasında analiz et"))
-            append("\n${ok(h.optJSONObject("search") != null)} Arama formu")
+            val sch = h.optJSONObject("search")
+            append("\n${ok(sch != null)} Arama formu" + when {
+                sch != null -> " (${sch.optString("method").uppercase()} ${sch.optString("path")} ?${sch.optString("param")}=)"
+                h.optJSONObject("searchInput") != null -> " — kutu var ama form yok; sitede bir arama yapıp tekrar dışa aktar (adres yoklanır)"
+                else -> " — arama kutusu bulunamadı; adres yoklanır"
+            })
         }
     }
 }
@@ -273,5 +284,38 @@ object CsVideo {
         if (needsRef) head.append(" · Referer gerekli (kod otomatik gönderir)")
         out.add(head.toString())
         return out
+    }
+}
+
+/** Arama adresi yoklayıcı: form/yakalanmış uç yoksa yaygın arama adreslerini canlı siteye karşı dener. */
+object CsSearch {
+    private val PATTERNS = listOf(
+        "/?s=%s", "/search?q=%s", "/?q=%s", "/arama?q=%s", "/ara?q=%s",
+        "/index.php?do=search&subaction=search&story=%s",
+        "/search/%s", "/arama/%s", "/ara/%s", "/?search=%s", "/search?query=%s", "/?keyword=%s", "/search?keyword=%s"
+    )
+    private val TR = java.util.Locale("tr")
+
+    /** Bulunan adres kalıbını (%s = sorgu) döndürür; bulunamazsa null. */
+    fun probe(origin: String, titles: List<String>, ua: String): String? {
+        val raw = titles.firstOrNull { it.length >= 4 } ?: return null
+        val phrase = raw.filter { it.isLetterOrDigit() || it == ' ' }.trim().take(20).trim()
+        if (phrase.length < 4) return null
+        val q = java.net.URLEncoder.encode(phrase, "UTF-8").replace("+", "%20")
+        val needle = phrase.lowercase(TR)
+        val t0 = System.currentTimeMillis()
+        for (p in PATTERNS) {
+            if (System.currentTimeMillis() - t0 > 60_000) break
+            try {
+                val hit = ApiFinder.fetchText(origin + p.replace("%s", q), ua, origin, 1 shl 20)
+                if (hit.first != 200 || !hit.second.second.lowercase(TR).contains(needle)) continue
+                val miss = ApiFinder.fetchText(origin + p.replace("%s", "zqxjkw"), ua, origin, 1 shl 20)
+                // Anlamsız aramada da başlık görünüyorsa adres sorguyu yok sayıyor demektir
+                if (miss.first == 200 && miss.second.second.lowercase(TR).contains(needle)) continue
+                return p
+            } catch (_: Exception) {
+            }
+        }
+        return null
     }
 }

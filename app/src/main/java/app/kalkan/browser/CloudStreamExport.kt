@@ -170,7 +170,8 @@ private fun MainActivity.exportCloudStreamForm(t: MainActivity.Tab, hints: JSONO
     val info = small(
         "${eps.size} uç bulundu (${eps.count { it.apiLike }} API benzeri).\n\n" +
             "Sayfa analizi:\n" + CsHints.summary(hints) + "\n\n" +
-            "✗ olanlar için o sayfaya gidip Araçlar → \u201CCS analizi\u201D çalıştır, sonra tekrar dışa aktar."
+            "✗ olanlar için o sayfaya gidip Araçlar → \u201CCS analizi\u201D çalıştır, sonra tekrar dışa aktar.\n" +
+            "Arama ✗ ise sitede bir film adı arayıp sonuç sayfasında dışa aktarmak en kesin yoldur."
     )
     MaterialAlertDialogBuilder(this)
         .setTitle("CloudStream iskeleti")
@@ -257,13 +258,39 @@ private fun MainActivity.buildCsZip(
                         .append(CsGen.ks(o.optString("name"))).append("\",")
                 }
                 tokens["@@MAIN_PAGES@@"] = pages.toString()
-                // Arama ucu bulunamadıysa sayfadaki arama formundan üret
+                // Arama: 1) canlı yakalanan uç  2) sayfadaki form  3) adres yoklama  4) WordPress varsayılanı
+                val encExpr = "\${java.net.URLEncoder.encode(query, \"UTF-8\")}"
                 val sf = hints.optJSONObject("search")
-                if (searchNote.startsWith("uç bulunamadı") && sf != null && sf.optString("param").isNotEmpty()) {
-                    val enc = "\${java.net.URLEncoder.encode(query, \"UTF-8\")}"
-                    tokens["@@SEARCH_URL@@"] = "\"\$mainUrl${CsGen.ks(sf.optString("path"))}?${CsGen.ks(sf.optString("param"))}=$enc\""
-                    tokens["@@SEARCH_NOTE@@"] = "sayfadaki arama formundan alındı (${sf.optString("param")})"
+                var searchCall: String? = null
+                if (searchNote.startsWith("uç bulunamadı")) {
+                    if (sf != null && sf.optString("param").isNotEmpty()) {
+                        val param = sf.optString("param")
+                        val path = sf.optString("path").ifBlank { "/" }
+                        val extra = sf.optJSONObject("params")
+                        if (sf.optString("method") == "post") {
+                            val pairs = ArrayList<String>()
+                            if (extra != null) for (k in extra.keys()) pairs.add("\"${CsGen.ks(k)}\" to \"${CsGen.ks(extra.optString(k))}\"")
+                            pairs.add("\"${CsGen.ks(param)}\" to query")
+                            searchCall = "val response = app.post(\"\$mainUrl${CsGen.ks(path)}\", data = mapOf(${pairs.joinToString(", ")}), referer = mainUrl)"
+                            tokens["@@SEARCH_NOTE@@"] = "sayfadaki arama formundan alındı (POST $path, alan: $param)"
+                        } else {
+                            val qs = ArrayList<String>()
+                            if (extra != null) for (k in extra.keys()) qs.add("${Uri.encode(k)}=${Uri.encode(extra.optString(k))}")
+                            qs.add("${Uri.encode(param)}=")
+                            tokens["@@SEARCH_URL@@"] = "\"\$mainUrl${CsGen.ks(path)}?${CsGen.ks(qs.joinToString("&"))}$encExpr\""
+                            tokens["@@SEARCH_NOTE@@"] = "sayfadaki arama formundan alındı (GET $path, alan: $param)"
+                        }
+                    } else {
+                        val titles = ArrayList<String>()
+                        list?.optJSONArray("titles")?.let { a -> for (i in 0 until a.length()) titles.add(a.optString(i)) }
+                        CsSearch.probe(origin, titles, ua)?.let { pat ->
+                            tokens["@@SEARCH_URL@@"] = "\"\$mainUrl${CsGen.ks(pat).replace("%s", encExpr)}\""
+                            tokens["@@SEARCH_NOTE@@"] = "adres yoklamasıyla bulundu ($pat)"
+                        }
+                    }
                 }
+                tokens["@@SEARCH_CALL@@"] = searchCall
+                    ?: ("val url = " + tokens["@@SEARCH_URL@@"] + "\n        val response = app.get(url, referer = mainUrl)")
                 tokens["@@CRYPTO_PASS@@"] = report.passes.joinToString(", ") { "\"${CsGen.ks(it)}\"" }
 
                 fun tpl(file: String): String {

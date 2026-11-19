@@ -1,0 +1,93 @@
+name: CS3 Derle
+
+# cs3-inbox/ klasörüne Kalkan'ın ürettiği eklenti ZIP'ini yükle; bu akış .cs3 dosyasına çevirir,
+# Releases sayfasına koyar ve "builds" dalında CloudStream repo'su olarak yayınlar.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cs3-inbox/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cs3
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12'
+
+      - name: ZIP'leri .cs3 olarak derle
+        run: |
+          shopt -s nullglob
+          mkdir -p out work
+          ok=0; fail=0
+          for z in cs3-inbox/*.zip; do
+            n=$(basename "$z" .zip)
+            rm -rf "work/$n"; mkdir -p "work/$n"
+            unzip -q "$z" -d "work/$n"
+            s=$(find "work/$n" -maxdepth 3 -name settings.gradle.kts | head -n1)
+            if [ -z "$s" ]; then echo "::error::$n: settings.gradle.kts bulunamadı (Kalkan'ın ZIP'i mi?)"; fail=$((fail+1)); continue; fi
+            root=$(dirname "$s")
+            if (cd "$root" && gradle make makePluginsJson --no-daemon --stacktrace); then
+              cp "$root"/*/build/*.cs3 out/
+              cp "$root/build/plugins.json" "work/$n.plugins.json"
+              ok=$((ok+1))
+            else
+              echo "::error::$n derlenemedi"; fail=$((fail+1))
+            fi
+          done
+          if [ "$ok" -gt 0 ]; then jq -s 'add' work/*.plugins.json > out/plugins.json; else echo '[]' > out/plugins.json; fi
+          cat > out/repo.json <<JSON
+          {
+            "name": "Kalkan Eklentileri",
+            "description": "Kalkan Tarayıcı ile oluşturulan CloudStream eklentileri",
+            "manifestVersion": 1,
+            "pluginLists": ["https://raw.githubusercontent.com/$GITHUB_REPOSITORY/builds/plugins.json"]
+          }
+          JSON
+          ls -la out
+          echo "başarılı: $ok, başarısız: $fail"
+          if [ "$fail" -gt 0 ]; then exit 1; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cs3
+          path: out/
+
+      - name: builds dalına yayınla (CloudStream repo'su)
+        run: |
+          cd out
+          git init -q -b builds
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -qm "Derleme $GITHUB_SHA"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" builds
+
+      - name: Sürüm yayınla (.cs3 indirme)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cs3-${{ github.run_number }}
+          name: CS3 eklentileri #${{ github.run_number }}
+          body: |
+            CloudStream eklentileri (.cs3). Dosyayı indirebilir ya da CloudStream'de
+            Ayarlar → Uzantılar → Depo ekle kısmına şu adresi yazabilirsin:
+
+            `https://raw.githubusercontent.com/${{ github.repository }}/builds/repo.json`
+          files: out/*.cs3
+          make_latest: false
