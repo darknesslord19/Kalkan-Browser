@@ -131,7 +131,11 @@ private object CsGen {
 internal fun MainActivity.exportCloudStream() {
     val t = pageTab() ?: return
     // Önce bu sayfayı analiz et (seçiciler site başına birikir), sonra formu aç
-    analyzeCsPage(t) { hints -> exportCloudStreamForm(t, hints) }
+    analyzeCsPage(t) { _ ->
+        csScanPanel(t, "Devam · eklenti ayarları") {
+            exportCloudStreamForm(t, CsHints.load(t.pageHost).takeIf { it.length() > 0 })
+        }
+    }
 }
 
 /** Geçerli sayfayı analiz edip sonucu site için kaydeder. */
@@ -147,14 +151,7 @@ internal fun MainActivity.analyzeCsPage(tab: MainActivity.Tab, done: (JSONObject
 /** Araçlar menüsü: yalnızca sayfayı analiz et, durumu göster. */
 internal fun MainActivity.analyzeCsPageAndShow() {
     val t = pageTab() ?: return
-    analyzeCsPage(t) { h ->
-        MaterialAlertDialogBuilder(this)
-            .setTitle("CloudStream analizi · ${t.pageHost}")
-            .setMessage(CsHints.summary(h) + "\n\nAna sayfada, dizi detayında ve bölüm sayfasında birer kez analiz et; bilgiler birikir. Sonra \u201CCloudStream iskeleti\u201D ile dışa aktar.")
-            .setPositiveButton("Tamam", null)
-            .setNeutralButton("Sıfırla") { _, _ -> CsHints.clear(t.pageHost); toast("Analiz verisi silindi") }
-            .show()
-    }
+    analyzeCsPage(t) { _ -> csScanPanel(t, "Tamam") {} }
 }
 
 private fun MainActivity.exportCloudStreamForm(t: MainActivity.Tab, hints: JSONObject?) {
@@ -266,8 +263,12 @@ private fun MainActivity.buildCsZip(
                 var searchCall: String? = null
                 val titles = ArrayList<String>()
                 list?.optJSONArray("titles")?.let { a -> for (i in 0 until a.length()) titles.add(a.optString(i)) }
+                val pat0 = sf?.optString("pattern").orEmpty()
                 if (searchNote.startsWith("uç bulunamadı")) {
-                    if (sf != null && sf.optString("param").isNotEmpty()) {
+                    if (pat0.startsWith("/") && pat0.contains("%s")) {
+                        tokens["@@SEARCH_URL@@"] = "\"\$mainUrl${CsGen.ks(pat0).replace("%s", encExpr)}\""
+                        tokens["@@SEARCH_NOTE@@"] = "Kalkan taramasında sitede gerçek arama yapılarak bulundu ($pat0)" + if (sf?.optBoolean("verified") == true) " · doğrulandı" else ""
+                    } else if (sf != null && sf.optString("param").isNotEmpty()) {
                         val param = sf.optString("param")
                         val path = sf.optString("path").ifBlank { "/" }
                         val extra = sf.optJSONObject("params")
@@ -309,6 +310,7 @@ private fun MainActivity.buildCsZip(
                         }
                     }
                 }
+                tokens["@@ROUTER@@"] = CsGen.ks(hints.optJSONObject("misc")?.optString("router").orEmpty())
                 tokens["@@SEARCH_CALL@@"] = searchCall
                     ?: ("val url = " + tokens["@@SEARCH_URL@@"] + "\n        val response = app.get(url, referer = mainUrl)")
                 tokens["@@CRYPTO_PASS@@"] = report.passes.joinToString(", ") { "\"${CsGen.ks(it)}\"" }

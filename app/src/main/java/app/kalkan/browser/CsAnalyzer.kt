@@ -54,6 +54,7 @@ if(best){
   var pa='src',pas=['data-src','data-lazy-src','data-original','data-lazy','src'];
   for(var q=0;q<pas.length;q++){var v=img&&img.getAttribute(pas[q]);if(v&&v.indexOf('data:')!==0){pa=pas[q];break;}}
   out.list={card:best.sel,title:ts,posterAttr:pa,count:best.n,matches:best.m,
+    links:best.items.slice(0,5).map(function(x){return x.a.href;}),
     sample:best.items.slice(0,3).map(function(x){return (x.h.textContent||'').trim().replace(/\s+/g,' ').slice(0,50);}),
     titles:best.items.slice(0,8).map(function(x){var e=ts?x.h.querySelector(ts):null;var t=(e&&e.textContent||'').trim();
       if(!t){var im=x.a.querySelector('img');t=im?(im.getAttribute('alt')||''):'';}return t.replace(/\s+/g,' ').trim();})
@@ -85,7 +86,7 @@ each('a[href]',function(a){if(!same(a)||skip(a))return;
   var k=sig(c);var g=eg[k]||(eg[k]={h:{},nums:{}});g.h[a.href]=1;g.nums[nm]=1;});
 var eb=null,en=1;
 Object.keys(eg).forEach(function(k){var n=Object.keys(eg[k].h).length,dn=Object.keys(eg[k].nums).length;if(dn>=2&&n>en){en=n;eb=k;}});
-if(eb){d.episodes=eb+' a';d.episodeCount=en;}
+if(eb){d.episodes=eb+' a';d.episodeCount=en;d.epLinks=Object.keys(eg[eb].h).slice(0,2);}
 if(Object.keys(d).length>3||d.episodes)out.detail=d;
 // ---- Sayfa türü: kart listesi yalnızca ana sayfa/kategori sayfasından, detay yalnızca detay sayfasından alınır.
 // Aksi halde detay sayfasındaki "benzer filmler" veya oyuncu bağlantıları gerçek kart seçicisini ezer.
@@ -158,9 +159,10 @@ object CsHints {
     /** Yeni sonucu, mevcut bilgiyle alt alan düzeyinde birleştirir (boşlar eskiyi silmez). */
     fun merge(host: String, fresh: JSONObject): JSONObject {
         val cur = load(host)
-        for (k in listOf("list", "detail", "player", "search", "nav")) {
+        for (k in listOf("list", "detail", "player", "search", "nav", "misc")) {
             val v = fresh.opt(k)
             if (empty(v)) continue
+            if (k == "search" && v is JSONObject && v.optString("pattern").isNotEmpty()) { cur.put(k, v); continue }
             if (v is JSONObject) {
                 val dst = cur.optJSONObject(k) ?: JSONObject().also { cur.put(k, it) }
                 for (sk in v.keys()) {

@@ -37,60 +37,93 @@ internal fun MainActivity.ghSettings(onSaved: (() -> Unit)? = null) {
         .show()
 }
 
-/** ZIP'i GitHub'a yükleyip derletir ve .cs3'ü indirir. */
+/** ZIP'i GitHub'a yükleyip derletir ve .cs3'ü indirir; adım adım ilerleyen pencere gösterir. */
 internal fun MainActivity.ghBuildZip(zip: ByteArray, plugin: String, zipName: String) {
     if (!GhBuild.configured()) {
         ghSettings { if (GhBuild.configured()) ghBuildZip(zip, plugin, zipName) }
         return
     }
-    val msg = TextView(this).apply {
-        text = "Başlıyor…"
-        textSize = 15f
-        setPadding(dp(24), dp(16), dp(24), dp(8))
-    }
+    val rows = listOf(
+        AuditRow("conn", "GitHub bağlantısı"),
+        AuditRow("up", "Eklenti paketi yükleniyor"),
+        AuditRow("build", "Derleniyor (Kotlin → .cs3)"),
+        AuditRow("get", "Yayınlama ve indirme")
+    )
+    val panel = CsPanel(this, "Derleniyor", plugin)
     var cancel = false
-    val dlg = MaterialAlertDialogBuilder(this)
-        .setTitle("Derleniyor")
-        .setView(msg)
-        .setCancelable(false)
-        .setNegativeButton("İptal") { _, _ -> cancel = true }
-        .show()
+    var stage = 0
+    val t0 = System.currentTimeMillis()
+    fun paint(note: String = "") {
+        for ((i, r) in rows.withIndex()) {
+            r.state = when { i < stage -> St.OK; i == stage -> St.RUN; else -> St.WAIT }
+        }
+        if (note.isNotBlank()) rows[stage].note = note.lines().joinToString(" · ").take(120)
+        val secs = (System.currentTimeMillis() - t0) / 1000
+        // Derleme süresi belirsiz: son adıma doğru yavaşlayan bir ilerleme eğrisi
+        val within = if (stage == 2) (1f - 1f / (1f + secs / 90f)) * 0.5f else 0f
+        panel.setProgress(((stage + within) / rows.size).coerceAtMost(0.97f), "${secs} sn · adım ${stage + 1}/${rows.size}")
+        panel.render(rows)
+    }
+    panel.setFooter("Paket GitHub'da derlenir; bu genelde 2–4 dakika sürür. Uygulamayı kapatmadan bekle.")
+    panel.addButton("İptal") { cancel = true; panel.setFooter("İptal ediliyor…") }
+    panel.show()
+    paint()
     Thread {
         val out = GhBuild.build(zip, plugin, zipName,
-            progress = { s -> runOnUiThread { msg.text = s } },
+            progress = { s ->
+                runOnUiThread {
+                    stage = when {
+                        s.contains("indiriliyor") -> 3
+                        s.contains("Derle") -> 2
+                        s.contains("yükleniyor") || s.contains("yeniden başlatılıyor") -> 1
+                        else -> stage
+                    }
+                    paint(s)
+                }
+            },
             cancelled = { cancel },
             saveFile = { name, bytes -> Saver.save(this, name, "application/octet-stream") { it.write(bytes) } })
-        runOnUiThread {
-            try { dlg.dismiss() } catch (_: Exception) {}
-            showGhResult(out, plugin)
-        }
+        runOnUiThread { showBuildResult(panel, rows, stage, out, plugin) }
     }.start()
 }
 
-private fun MainActivity.showGhResult(o: GhBuild.Outcome, plugin: String) {
-    val b = MaterialAlertDialogBuilder(this)
+private fun MainActivity.showBuildResult(panel: CsPanel, rows: List<AuditRow>, stage: Int, o: GhBuild.Outcome, plugin: String) {
+    panel.clearButtons()
     if (o.ok) {
-        b.setTitle(".cs3 hazır")
-            .setMessage(
-                "${o.message}\n\nİndirilenler/Kalkan/$plugin.cs3 olarak kaydedildi.\n\n" +
-                    "CloudStream'e eklemek için Ayarlar → Uzantılar → Depo ekle kısmına şu adresi yaz " +
-                    "(güncellemeler otomatik gelir):\n${GhBuild.repoJsonUrl()}"
-            )
-            .setPositiveButton("Adresi kopyala") { _, _ ->
+        rows.forEach { it.state = St.OK }
+        rows[3].note = "$plugin.cs3 · İndirilenler/Kalkan"
+        panel.setTitle("Eklenti hazır", plugin)
+        panel.setProgress(1f, "Tamamlandı")
+        panel.setChip("Derleme başarılı", 0xFF2E9E5B.toInt())
+        panel.render(rows)
+        panel.setFooter("CloudStream'e ekle düğmesi depo adresini CloudStream'de açar; güncellemeler otomatik gelir. Açılmazsa adresi kopyalayıp Ayarlar → Uzantılar → Depo ekle'ye yapıştır.")
+        panel.addButton("CloudStream'e ekle", primary = true) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("cloudstreamrepo://" + GhBuild.repoJsonUrl())))
+            } catch (_: Exception) {
                 (getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager)
                     .setPrimaryClip(ClipData.newPlainText("repo", GhBuild.repoJsonUrl()))
-                toast("Kopyalandı")
+                toast("CloudStream açılamadı, adres kopyalandı")
             }
-            .setNeutralButton("İndirilenler") { _, _ -> openSystemDownloads() }
-            .setNegativeButton("Tamam", null)
+        }
+        panel.addButton("Depo adresini kopyala") {
+            (getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                .setPrimaryClip(ClipData.newPlainText("repo", GhBuild.repoJsonUrl()))
+            toast("Kopyalandı")
+        }
+        panel.addButton(".cs3 dosyasının yeri") { openSystemDownloads() }
+        panel.addButton("Kapat") { panel.dismiss() }
     } else {
-        b.setTitle("Derleme tamamlanamadı")
-            .setMessage(o.message)
-            .setPositiveButton("Tamam", null)
-        if (o.authProblem) b.setNeutralButton("GitHub ayarı") { _, _ -> ghSettings() }
-        else if (o.link != null) b.setNeutralButton("Günlüğü aç") { _, _ ->
+        rows.forEachIndexed { i, r -> r.state = if (i < stage) St.OK else if (i == stage) St.FAIL else St.WAIT }
+        rows[stage.coerceIn(0, rows.size - 1)].note = o.message.lines().firstOrNull().orEmpty().take(140)
+        panel.setTitle("Derleme tamamlanamadı", plugin)
+        panel.setChip("Hata", 0xFFE5484D.toInt())
+        panel.render(rows)
+        panel.setFooter(o.message)
+        if (o.authProblem) panel.addButton("GitHub ayarı", primary = true) { panel.dismiss(); ghSettings() }
+        else if (o.link != null) panel.addButton("Günlüğü aç", primary = true) {
             try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(o.link))) } catch (_: Exception) { toast("Açılamadı") }
         }
+        panel.addButton("Kapat") { panel.dismiss() }
     }
-    b.show()
 }

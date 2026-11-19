@@ -40,8 +40,8 @@ class @@NAME@@Provider : MainAPI() {
             else -> request.data
         }
         val resp = fetch(url)
-        val document = resp.document
-        val items = findCards(document)
+        var items = findCards(resp.document)
+        if (items.isEmpty()) items = routerCards(url)
         if (items.isEmpty() && page <= 1) throw ErrorLoadingException("Kart bulunamadı (HTTP ${resp.code}, ${resp.text.length} bayt): ${resp.text.take(90).replace('\n', ' ')}")
         return newHomePageResponse(request, items, hasNext = items.isNotEmpty())
     }
@@ -67,6 +67,28 @@ class @@NAME@@Provider : MainAPI() {
         val r = app.get(url, referer = mainUrl)
         val blocked = r.code == 403 || r.code == 503 || r.text.contains("Just a moment", true) || r.text.contains("cf-browser-verification", true)
         return if (blocked) app.get(url, referer = mainUrl, interceptor = cfKiller) else r
+    }
+
+    private val routerParam = "@@ROUTER@@"
+    private val epRegex = Regex("(?i)(\\d+\\s*\\.?\\s*(bölüm|bolum|sezon|episode|season|ep)\\b|\\b(bölüm|bolum|episode|ep|sezon|season)[\\s-]*\\d+|\\d+\\s*x\\s*\\d+)")
+
+    /** İçeriği JSON uç noktasından da veren (SPA) siteler için: adrese router parametresi ekleyip yanıttan HTML çıkarır. */
+    private suspend fun routerBody(url: String): String {
+        if (routerParam.isBlank()) return ""
+        val u = url + (if (url.contains("?")) "&" else "?") + routerParam
+        return try { app.get(u, referer = mainUrl, headers = mapOf("X-Requested-With" to "XMLHttpRequest")).text } catch (_: Exception) { "" }
+    }
+
+    private suspend fun routerCards(url: String): List<SearchResponse> = parseSearch(routerBody(url))
+
+    private suspend fun routerDoc(url: String): org.jsoup.nodes.Document? {
+        val t = routerBody(url).trim()
+        if (t.isEmpty()) return null
+        if (!(t.startsWith("{") || t.startsWith("["))) return org.jsoup.Jsoup.parse(t, mainUrl)
+        val strs = ArrayList<String>()
+        try { jsonStrings(if (t.startsWith("[")) org.json.JSONArray(t) else org.json.JSONObject(t), strs) } catch (_: Exception) { return null }
+        val html = strs.filter { it.contains("<") && it.contains(">") }.joinToString("\n")
+        return if (html.isBlank()) null else org.jsoup.Jsoup.parse(html, mainUrl)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
@@ -162,7 +184,7 @@ class @@NAME@@Provider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        val document = fetch(url).document
+        val document = fetch(url).document.let { d -> if (d.selectFirst("h1") == null) (routerDoc(url) ?: d) else d }
 
         val title = document.selectFirst("h1")?.text()?.trim()
             ?: document.selectFirst("meta[property=og:title]")?.attr("content")
@@ -173,7 +195,7 @@ class @@NAME@@Provider : MainAPI() {
             .find(document.selectFirst("[class*=year], [class*=yil], [class*=release]")?.text() ?: "")?.value?.toIntOrNull()
 
         val episodes = if (episodeSelector.isBlank()) emptyList() else
-            document.select(episodeSelector).mapIndexedNotNull { i, ep ->
+            document.select(episodeSelector).filter { epRegex.containsMatchIn(it.text() + " " + it.attr("href")) }.mapIndexedNotNull { i, ep ->
                 val href = fixUrlNull(ep.attr("href")) ?: return@mapIndexedNotNull null
                 newEpisode(url = href, initializer = {
                     this.name = ep.text().trim().ifBlank { "Bölüm ${i + 1}" }
@@ -204,8 +226,10 @@ class @@NAME@@Provider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val page = app.get(data, referer = mainUrl)
-        return scanSource(page.text, page.document, data, 0, subtitleCallback, callback)
+        val page = fetch(data)
+        var ok = scanSource(page.text, page.document, data, 0, subtitleCallback, callback)
+        if (!ok) routerDoc(data)?.let { ok = scanSource(it.outerHtml(), it, data, 0, subtitleCallback, callback) }
+        return ok
     }
 
     private suspend fun scanSource(
