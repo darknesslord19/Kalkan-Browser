@@ -80,6 +80,7 @@ jobs:
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" builds
 
       - name: Sürüm yayınla (.cs3 indirme)
+        if: hashFiles('out/*.cs3') != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: cs3-${{ github.run_number }}
