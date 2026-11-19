@@ -52,13 +52,13 @@ subprojects {
         }
 
         compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_1_8
-            targetCompatibility = JavaVersion.VERSION_1_8
+            sourceCompatibility = JavaVersion.VERSION_11
+            targetCompatibility = JavaVersion.VERSION_11
         }
 
         tasks.withType<KotlinJvmCompile> {
             compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_1_8)
+                jvmTarget.set(JvmTarget.JVM_11)
                 freeCompilerArgs.addAll(
                     "-Xno-call-assertions",
                     "-Xno-param-assertions",
@@ -85,6 +85,7 @@ subprojects {
         // Rhino uygulamada hazır gelir; yalnızca derleme için gerekli (Rhino kullanan referans eklentiler)
         val compileOnly by configurations
         compileOnly("org.mozilla:rhino:1.7.14")
+        compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     }
 }
 
