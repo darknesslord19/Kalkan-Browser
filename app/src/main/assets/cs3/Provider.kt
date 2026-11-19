@@ -311,7 +311,7 @@ class @@NAME@@Provider : MainAPI() {
                 val en = epNumRe.find(tx)?.let { it.groupValues[1].ifBlank { it.groupValues[3] } }?.toIntOrNull()
                 newEpisode(url = href, initializer = {
                     this.name = ep.text().trim().ifBlank { "Bölüm ${i + 1}" }
-                    this.season = sn
+                    this.season = sn ?: 1
                     this.episode = en ?: (i + 1)
                 })
             }.distinctBy { it.data }.sortedWith(compareBy({ it.season ?: 1 }, { it.episode ?: 0 }))
@@ -333,6 +333,71 @@ class @@NAME@@Provider : MainAPI() {
                 trailer?.let { addTrailer(it) }
             }
         }
+    }
+
+    /** Sayfa betiklerini Rhino ile çalıştırıp (sahte DOM ile) oluşan değişkenlerden / jwplayer.setup'tan akış adreslerini toplar. */
+    @Suppress("DEPRECATION")
+    private fun rhinoDecode(doc: org.jsoup.nodes.Document, pageUrl: String): List<String> {
+        val host = runCatching { java.net.URI(pageUrl).host }.getOrNull() ?: "localhost"
+        val polyfill = """
+            var window = globalThis || this; var global = window; var __jw = [];
+            var document = { getElementById: function() { return { style: {}, addEventListener: function() {} }; },
+                querySelector: function() { return { style: {}, addEventListener: function() {} }; }, querySelectorAll: function() { return []; },
+                createElement: function() { return { style: {}, setAttribute: function() {}, addEventListener: function() {} }; }, cookie: "",
+                addEventListener: function() {}, removeEventListener: function() {},
+                body: { appendChild: function() {}, removeChild: function() {} }, head: { appendChild: function() {}, removeChild: function() {} },
+                location: { href: "$pageUrl", hostname: "$host" } };
+            var location = document.location;
+            var navigator = { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36", language: "tr-TR" };
+            var screen = { width: 1920, height: 1080 };
+            var ${'$'} = function() { return { ready: function(){}, prepend: function(){}, append: function(){}, on: function(){}, css: function(){}, attr: function(){}, hide: function(){}, show: function(){} }; };
+            ${'$'}.ajax = function(){};
+            var jwplayer = function() { return { setup: function(o){ try { __jw.push(JSON.stringify(o)); } catch(e){} }, on: function(){}, once: function(){}, addButton: function(){} }; };
+            jwplayer.key = "";
+            var console = { log: function() {}, error: function() {}, warn: function() {} };
+            var _b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+            if (typeof btoa === 'undefined') { btoa = function(input) { var str = String(input); var output = '';
+                for (var block = 0, charCode, idx = 0, map = _b; str.charAt(idx | 0) || (map = '=', idx % 1); output += map.charAt(63 & block >> 8 - idx % 1 * 8)) {
+                    charCode = str.charCodeAt(idx += 3/4); if (charCode > 0xFF) throw new Error('btoa'); block = block << 8 | charCode; } return output; }; }
+            if (typeof atob === 'undefined') { atob = function(input) { var str = String(input).replace(/[=]+${'$'}/, ''); if (str.length % 4 == 1) throw new Error('atob'); var output = '';
+                for (var bc = 0, bs = 0, buffer, idx = 0; buffer = str.charAt(idx++); ~(buffer = _b.indexOf(buffer)) && (bs = bc % 4 ? bs * 64 + buffer : buffer, bc++ % 4) ? output += String.fromCharCode(255 & bs >> (-2 * bc & 6)) : 0) {} return output; }; }
+        """.trimIndent()
+        val collector = """
+            var __l = [];
+            for (var k in this) { try { var v = this[k]; if (typeof v === 'string' && v.indexOf('http') === 0 && /m3u8|\.txt|master|\/hls\/|\.mp4|\/m3u/.test(v) && __l.indexOf(v) === -1) __l.push(v); } catch(e){} }
+            __l.join('|||') + '|||' + __jw.join('|||');
+        """.trimIndent()
+        val cx = org.mozilla.javascript.Context.enter()
+        cx.optimizationLevel = -1
+        return try {
+            val scope = cx.initStandardObjects()
+            cx.evaluateString(scope, polyfill, "polyfill", 1, null)
+            doc.select("script").forEach { s ->
+                val code = s.data().trim()
+                if (code.isNotBlank() && !Regex("google|analytics|cast_sender|ld\\+json|gtag").containsMatchIn(code.take(300))) {
+                    try { cx.evaluateString(scope, code, "script", 1, null) } catch (_: Throwable) {}
+                }
+            }
+            val res = cx.evaluateString(scope, collector, "collector", 1, null)?.toString().orEmpty().replace("\\/", "/")
+            Regex("https?://[^\\s\"'<>\\\\|]+").findAll(res).map { it.value }
+                .filter { Regex("(?i)m3u8|\\.txt|master|/hls/|\\.mp4|/m3u").containsMatchIn(it) && !notMedia.containsMatchIn(it) }.distinct().toList()
+        } catch (_: Throwable) { emptyList() } finally { org.mozilla.javascript.Context.exit() }
+    }
+
+    /** Oynatıcı sayfasındaki "hash" değerini /video/ah/ benzeri uca POST edip dönen akış adreslerini toplar. */
+    private suspend fun ajaxHashStreams(text: String, pageUrl: String): List<String> {
+        val hash = Regex("\"hash\"\\s*:\\s*\"([^\"]+)\"").find(text)?.groupValues?.get(1)
+            ?: Regex("hash\\s*:\\s*['\"]([A-Za-z0-9]{24,64})['\"]").find(text)?.groupValues?.get(1) ?: return emptyList()
+        val path = Regex("\"url\"\\s*:\\s*\"([^\"]+ah/)\"").find(text)?.groupValues?.get(1)
+            ?: Regex("url\\s*:\\s*['\"]([^'\"]+ah/)['\"]").find(text)?.groupValues?.get(1) ?: "/video/ah/"
+        val origin = Regex("(https?://[^/]+)").find(pageUrl)?.groupValues?.get(1) ?: return emptyList()
+        val api = if (path.startsWith("http")) path else origin + "/" + path.trimStart('/')
+        val body = runCatching {
+            app.post(api, data = mapOf("hash" to hash), referer = pageUrl,
+                headers = mapOf("Origin" to origin, "X-Requested-With" to "XMLHttpRequest")).text
+        }.getOrNull()?.replace("\\/", "/") ?: return emptyList()
+        return Regex("https?://[^\\s\"'<>\\\\]+").findAll(body).map { it.value }
+            .filter { Regex("(?i)m3u8|\\.txt|master|/hls/|\\.mp4|/m3u").containsMatchIn(it) && !notMedia.containsMatchIn(it) }.distinct().toList()
     }
 
     private fun decodeLayers(text: String): String {
@@ -400,6 +465,11 @@ class @@NAME@@Provider : MainAPI() {
         }
         if (emitStreams(text, referer, callback)) found = true
 
+        if (!found) {
+            val viaJs = rhinoDecode(doc ?: org.jsoup.Jsoup.parse(text), referer) + ajaxHashStreams(text, referer)
+            for (c in viaJs.distinct().take(8)) if (emitStreams(c, referer, callback) || sniffHls(c, referer, callback)) { found = true; break }
+        }
+
         // Uzantısız HLS adayları: JW Player file/src alanları ve /m3u/, /list/, /hls/ gibi yollar
         if (!found) {
             val jw = Regex("[\"']?(?:file|src|source)[\"']?\\s*:\\s*[\"'](https?://[^\"']+)[\"']").findAll(text).map { it.groupValues[1] }
@@ -421,7 +491,7 @@ class @@NAME@@Provider : MainAPI() {
         if (depth < 2) {
             val d = doc ?: org.jsoup.Jsoup.parse(text)
             val attrs = listOf("src", "data-src", "data-embed", "data-video", "data-player", "data-url")
-            val frames = d.select("iframe, [data-embed], [data-video], [data-player]")
+            val frames = d.select("iframe, [data-embed], [data-video], [data-player], nav.card-nav a, a.card-nav-link, button.card-nav-link, [data-url]")
                 .mapNotNull { el -> attrs.firstNotNullOfOrNull { k -> el.attr(k).takeIf { it.isNotBlank() } } }
                 .map { fixUrl(it) }.distinct()
             for (frame in frames) {
