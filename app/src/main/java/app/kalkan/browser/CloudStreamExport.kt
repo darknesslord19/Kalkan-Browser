@@ -407,6 +407,9 @@ private fun MainActivity.buildCsZip(
                 tokens["@@CRYPTO_CALL@@"] = if (report.passes.isNotEmpty()) tpl("crypto_call.txt") else ""
                 tokens["@@CRYPTO_FUN@@"] = if (report.passes.isNotEmpty()) tpl("crypto_fun.txt") else ""
 
+                // Hazır Türk oynatıcı çözücüleri (API modu dışında): dosyaları ekle, Plugin'e kaydet
+                val extPack = if (tmdbBase.isEmpty()) try { CsBrain.extPack(this, pkg) } catch (_: Exception) { null } else null
+                tokens["@@EXTRACTORS@@"] = extPack?.second?.joinToString("") { "        registerExtractorAPI($it())\n" }.orEmpty()
                 val root = "$name-cloudstream"
                 val kt = "$root/$name/src/main/kotlin/" + pkg.replace('.', '/')
                 val files = linkedMapOf<String, String>(
@@ -423,6 +426,7 @@ private fun MainActivity.buildCsZip(
                     "$kt/${name}Endpoints.kt" to ek.toString(),
                     "$root/$name/ENDPOINTS.md" to md.toString()
                 )
+                extPack?.first?.forEach { (fn, content) -> files["$kt/ext/$fn"] = content }
                 // Bilgi bankasında bu site için ÇALIŞAN referans eklenti varsa üretilen sağlayıcının yerine onu koy
                 try {
                     CsBrain.refFiles(this, host, origin)?.let { ref ->

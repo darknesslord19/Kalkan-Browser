@@ -105,8 +105,17 @@ class @@NAME@@Provider : MainAPI() {
         val body = runCatching { app.get(u, referer = referer, headers = hdr).text }.getOrNull() ?: return false
         if (!body.trimStart().startsWith("#EXTM3U")) return false
         if (!worthIt(u, referer, true)) return false
-        M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
+        emitM3u8(u, referer, hdr, callback)
         return true
+    }
+
+    /** Tek HLS master kaynağı: oynatıcı kaliteyi kendisi seçer; Referer/Origin/User-Agent başlıklarıyla (2001 hatasına karşı). */
+    private suspend fun emitM3u8(u: String, referer: String, hdr: Map<String, String>, callback: (ExtractorLink) -> Unit) {
+        callback(newExtractorLink(name, name, u, ExtractorLinkType.M3U8) {
+            this.referer = referer
+            this.headers = hdr + mapOf("User-Agent" to "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36")
+            this.quality = Qualities.Unknown.value
+        })
     }
 
     private val routerParam = "@@ROUTER@@"
@@ -820,7 +829,7 @@ class @@NAME@@Provider : MainAPI() {
         val hdr = mapOf("Referer" to referer, "Origin" to origin)
         Regex("https?:[^\"'\\s<>\\\\]+\\.m3u8[^\"'\\s<>\\\\]*").findAll(src).map { it.value }.distinct().forEach { u ->
             if (worthIt(u, referer, true)) {
-                M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
+                emitM3u8(u, referer, hdr, callback)
                 ok = true
             }
         }
@@ -836,7 +845,7 @@ class @@NAME@@Provider : MainAPI() {
         }
         Regex("https?:[^\"'\\s<>\\\\]+/master\\.txt[^\"'\\s<>\\\\]*").findAll(src).map { it.value }.distinct().forEach { u ->
             if (worthIt(u, referer, true)) {
-                M3u8Helper.generateM3u8(name, u, referer, headers = hdr).forEach(callback)
+                emitM3u8(u, referer, hdr, callback)
                 ok = true
             }
         }

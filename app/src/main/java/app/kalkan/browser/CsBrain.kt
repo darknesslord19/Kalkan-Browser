@@ -122,4 +122,26 @@ internal object CsBrain {
     fun hasRef(ctx: Context, host: String): Boolean = site(ctx, host)?.optString("ref").orEmpty().isNotEmpty()
 
     fun siteName(ctx: Context, host: String): String = site(ctx, host)?.optString("name").orEmpty()
+
+    /**
+     * Hazır Türk oynatıcı çözücüleri paketi (assets/ext/turk.zip; wiojelt/CloudStream-Builder, MIT): RapidVid, VidMoxy, TurboImgz,
+     * CloseLoad, VidRame, Vidmixi, ContentX/Hotlinger, PeaceMakerst ... Üretilen eklentiye kopyalanır ve Plugin'e kaydedilir.
+     * Dönen: (dosya adı → içerik, kaydedilecek sınıf adları)
+     */
+    fun extPack(ctx: Context, pkg: String): Pair<Map<String, String>, List<String>> {
+        val files = LinkedHashMap<String, String>()
+        val classes = ArrayList<String>()
+        try {
+            java.util.zip.ZipInputStream(ctx.assets.open("ext/turk.zip")).use { z ->
+                while (true) {
+                    val e = z.nextEntry ?: break
+                    if (e.isDirectory) continue
+                    val t = z.readBytes().toString(Charsets.UTF_8).replace("@@PKG@@", pkg)
+                    files[e.name] = t
+                    Regex("(?m)^(?:open\\s+)?class\\s+(\\w+)\\s*:\\s*\\w+\\(\\)").findAll(t).forEach { classes += it.groupValues[1] }
+                }
+            }
+        } catch (_: Exception) { }
+        return files to classes.distinct()
+    }
 }

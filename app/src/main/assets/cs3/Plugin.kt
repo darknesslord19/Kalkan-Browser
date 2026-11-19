@@ -9,5 +9,5 @@ class @@NAME@@Plugin : Plugin() {
     override fun load(context: Context) {
         // Bu eklentinin sağlayıcılarını CloudStream'e kaydeder
         registerMainAPI(@@NAME@@Provider())
-    }
+@@EXTRACTORS@@    }
 }
