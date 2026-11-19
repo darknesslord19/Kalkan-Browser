@@ -77,7 +77,7 @@ private fun MainActivity.showGhResult(o: GhBuild.Outcome, plugin: String) {
                     "(güncellemeler otomatik gelir):\n${GhBuild.repoJsonUrl()}"
             )
             .setPositiveButton("Adresi kopyala") { _, _ ->
-                (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager)
+                (getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager)
                     .setPrimaryClip(ClipData.newPlainText("repo", GhBuild.repoJsonUrl()))
                 toast("Kopyalandı")
             }
