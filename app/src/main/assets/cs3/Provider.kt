@@ -40,8 +40,22 @@ class @@NAME@@Provider : MainAPI() {
             else -> request.data
         }
         val document = app.get(url, referer = mainUrl).document
-        val items = document.select(cardSelector).mapNotNull { it.toSearchResult() }.distinctBy { it.url }
+        val items = findCards(document)
         return newHomePageResponse(request, items, hasNext = items.isNotEmpty())
+    }
+
+    private val badPath = Regex("(?i)/(oyuncu|actor|cast|yonetmen|director|etiket|tag|author|yazar|user|uye|login|register|iletisim|contact|category|kategori|yil|ulke|page)(/|$)")
+
+    /** Seçici işe yaramazsa ya da oyuncu/etiket gibi yanlış bağlantılar dönerse, görselli film bağlantılarını kendisi bulur. */
+    private fun findCards(doc: org.jsoup.nodes.Document): List<SearchResponse> {
+        val host = try { java.net.URI(mainUrl).host.removePrefix("www.") } catch (_: Exception) { "" }
+        fun ok(r: SearchResponse): Boolean = try {
+            val u = java.net.URI(r.url); u.host.removePrefix("www.") == host && u.path.length > 2 && !badPath.containsMatchIn(u.path)
+        } catch (_: Exception) { false }
+        val primary = doc.select(cardSelector).mapNotNull { it.toSearchResult() }.distinctBy { it.url }.filter { ok(it) }
+        if (primary.size >= 3) return primary
+        val generic = doc.select("a[href]:has(img)").mapNotNull { it.toSearchResult() }.distinctBy { it.url }.filter { ok(it) }
+        return if (generic.size > primary.size) generic else primary
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
@@ -81,7 +95,6 @@ class @@NAME@@Provider : MainAPI() {
     private fun parseSearch(body: String): List<SearchResponse> {
         val t = body.trim()
         if (t.isEmpty()) return emptyList()
-        val selectors = listOf(cardSelector, "article a[href]", "a[href]:has(img)")
         val docs = ArrayList<org.jsoup.nodes.Document>()
         if (t.startsWith("{") || t.startsWith("[")) {
             val strs = ArrayList<String>()
@@ -108,8 +121,8 @@ class @@NAME@@Provider : MainAPI() {
                 if (res.isNotEmpty()) return res.distinctBy { it.url }
             } catch (_: Exception) {}
         } else docs.add(org.jsoup.Jsoup.parse(t, mainUrl))
-        for (d in docs) for (sel in selectors) {
-            val r = d.select(sel).mapNotNull { it.toSearchResult() }.distinctBy { it.url }
+        for (d in docs) {
+            val r = findCards(d)
             if (r.isNotEmpty()) return r
         }
         return emptyList()
