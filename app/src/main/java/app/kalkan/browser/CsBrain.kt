@@ -88,4 +88,33 @@ internal object CsBrain {
         }
         return out
     }
+
+    /**
+     * Bilgi bankasında bu site için çalışan referans eklenti kaynağı varsa (assets/ref/<Ad>.zip) dosyalarını döndürür.
+     * Ana sınıftaki alan adı kullanıcının güncel adresine çevrilir. Anahtar: modül içi yol.
+     */
+    fun refFiles(ctx: Context, host: String, origin: String): Map<String, String>? {
+        val dir = site(ctx, host)?.optString("ref").orEmpty().ifEmpty { return null }
+        val out = LinkedHashMap<String, String>()
+        try {
+            java.util.zip.ZipInputStream(ctx.assets.open("ref/$dir.zip")).use { z ->
+                while (true) {
+                    val e = z.nextEntry ?: break
+                    if (e.isDirectory) continue
+                    out[e.name.replace('\\', '/')] = z.readBytes().toString(Charsets.UTF_8)
+                }
+            }
+        } catch (_: Exception) { return null }
+        val newHost = origin.removePrefix("https://").removePrefix("http://").removePrefix("www.").trimEnd('/')
+        for ((k, v) in out.entries.toList()) {
+            if (!k.endsWith(".kt") || !Regex(":\\s*MainAPI\\(\\)").containsMatchIn(v)) continue
+            val m = Regex("override\\s+var\\s+mainUrl\\s*=\\s*\"(https?://[^\"]+)\"").find(v) ?: continue
+            val oldUrl = m.groupValues[1]
+            val oldHost = oldUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.").trimEnd('/')
+            var t = v.replace(oldUrl, origin.trimEnd('/'))
+            if (oldHost.isNotEmpty() && oldHost != newHost) t = t.replace(oldHost, newHost)
+            out[k] = t
+        }
+        return out
+    }
 }

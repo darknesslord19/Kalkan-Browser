@@ -398,7 +398,7 @@ private fun MainActivity.buildCsZip(
 
                 val root = "$name-cloudstream"
                 val kt = "$root/$name/src/main/kotlin/" + pkg.replace('.', '/')
-                val files = linkedMapOf(
+                val files = linkedMapOf<String, String>(
                     "$root/build.gradle.kts" to tpl("root_build.gradle.kts"),
                     "$root/settings.gradle.kts" to tpl("settings.gradle.kts"),
                     "$root/gradle.properties" to tpl("gradle.properties"),
@@ -412,6 +412,14 @@ private fun MainActivity.buildCsZip(
                     "$kt/${name}Endpoints.kt" to ek.toString(),
                     "$root/$name/ENDPOINTS.md" to md.toString()
                 )
+                // Bilgi bankasında bu site için ÇALIŞAN referans eklenti varsa üretilen sağlayıcının yerine onu koy
+                try {
+                    CsBrain.refFiles(this, host, origin)?.let { ref ->
+                        files.keys.removeAll { it.startsWith("$root/$name/src/main/") || it == "$root/$name/build.gradle.kts" }
+                        for ((rel, content) in ref) files["$root/$name/$rel"] = content
+                        files["$root/$name/ENDPOINTS.md"] = "Bu eklenti Kalkan bilgi bankasındaki çalışan referans kaynaktan üretildi ($host).\n"
+                    }
+                } catch (_: Exception) { }
                 val bos = ByteArrayOutputStream()
                 ZipOutputStream(bos).use { z ->
                     for ((path, content) in files) {

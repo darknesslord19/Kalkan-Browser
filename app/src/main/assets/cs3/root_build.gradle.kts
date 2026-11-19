@@ -82,6 +82,9 @@ subprojects {
         implementation("org.jspecify:jspecify:1.0.0")
         // Jackson'ı 2.13.1'in üstüne çıkarma: eski cihazlarda bozulur
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
+        // Rhino uygulamada hazır gelir; yalnızca derleme için gerekli (Rhino kullanan referans eklentiler)
+        val compileOnly by configurations
+        compileOnly("org.mozilla:rhino:1.7.14")
     }
 }
 

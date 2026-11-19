@@ -33,7 +33,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": ""
+   "xrw": "",
+   "ref": "AnimeciX"
   },
   "anizm.com.tr": {
    "name": "Anizm",
@@ -98,7 +99,8 @@
    ],
    "players": [],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "Anizm"
   },
   "belgeselx.com": {
    "name": "BelgeselX",
@@ -194,7 +196,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": ""
+   "xrw": "",
+   "ref": "BelgeselX"
   },
   "cizgimax.online": {
    "name": "ÇizgiMax",
@@ -262,7 +265,8 @@
    ],
    "players": [],
    "aesKeys": [],
-   "xrw": ""
+   "xrw": "",
+   "ref": "CizgiMax"
   },
   "ddizi.tel": {
    "name": "DDizi",
@@ -287,7 +291,8 @@
    ],
    "players": [],
    "aesKeys": [],
-   "xrw": ""
+   "xrw": "",
+   "ref": "DDizi"
   },
   "dizibox.live": {
    "name": "DiziBox",
@@ -355,7 +360,8 @@
    ],
    "players": [],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "DiziBox"
   },
   "dizigom3.top": {
    "name": "DiziGom",
@@ -452,7 +458,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": ""
+   "xrw": "",
+   "ref": "DiziGom"
   },
   "dizikorea3.com": {
    "name": "DiziKorea",
@@ -523,7 +530,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "DiziKorea"
   },
   "dizimag.onl": {
    "name": "DiziMag",
@@ -565,7 +573,8 @@
    ],
    "players": [],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "DiziMag"
   },
   "ddizimom.net": {
    "name": "DiziMom",
@@ -653,7 +662,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "DiziMom"
   },
   "dizipal1820.com": {
    "name": "DiziPal",
@@ -777,7 +787,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "DiziPal"
   },
   "dizilla.now": {
    "name": "Dizilla",
@@ -902,7 +913,8 @@
    "aesKeys": [
     "9bYMCNQiWsXIYFWYAu7EkdsSbmGBTyUI"
    ],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "Dizilla"
   },
   "filmkovasi.co": {
    "name": "FilmKovası",
@@ -985,7 +997,8 @@
    ],
    "players": [],
    "aesKeys": [],
-   "xrw": ""
+   "xrw": "",
+   "ref": "FilmKovasi"
   },
   "filmmakinesi.to": {
    "name": "FilmMakinesi",
@@ -1107,7 +1120,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "FilmMakinesi"
   },
   "filmmodu.one": {
    "name": "FilmModu",
@@ -1226,7 +1240,8 @@
    ],
    "players": [],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "FilmModu"
   },
   "hdfilmizle.live": {
    "name": "HDFilmİzle",
@@ -1323,7 +1338,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "HDFilmIzle"
   },
   "hintfilmizle.com": {
    "name": "HintFilmİzle",
@@ -1407,7 +1423,8 @@
    "aesKeys": [
     "RySdvcyu5iTUxn97vn4HwoniwgxaCynA"
    ],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "HintFilmIzle"
   },
   "jetfilmizle.now": {
    "name": "JetFilmizle",
@@ -1446,7 +1463,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "JetFilmizle"
   },
   "kultfilmler.net": {
    "name": "KultFilmler",
@@ -1564,7 +1582,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "KultFilmler"
   },
   "selcukflix.app": {
    "name": "SelcukFlix",
@@ -1660,7 +1679,8 @@
    "aesKeys": [
     "9bYMCNQiWsXIYFWYAu7EkdsSbmGBTyUI"
    ],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "SelcukFlix"
   },
   "setfilmizle.ltd": {
    "name": "SetFilmIzle",
@@ -1794,7 +1814,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "SetFilmIzle"
   },
   "sinemacc.com": {
    "name": "SinemaCX",
@@ -1897,7 +1918,8 @@
    ],
    "players": [],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "SinemaCX"
   },
   "sinematv.az": {
    "name": "SinemaTV.az",
@@ -1990,7 +2012,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": ""
+   "xrw": "",
+   "ref": "SinemaTV"
   },
   "tavsiyefilmizle.net": {
    "name": "TavsiyeFilmIzle",
@@ -2105,7 +2128,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "TavsiyeFilmIzle"
   },
   "movies2watch.watch": {
    "name": "Watch2Movies",
@@ -2236,7 +2260,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": ""
+   "xrw": "",
+   "ref": "Watch2Movies"
   },
   "webteizle.info": {
    "name": "WebteIzle",
@@ -2348,7 +2373,8 @@
     }
    ],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "WebteIzle"
   },
   "yabancidizi.news": {
    "name": "YabanciDizi",
@@ -2429,7 +2455,8 @@
    ],
    "players": [],
    "aesKeys": [],
-   "xrw": "XMLHttpRequest"
+   "xrw": "XMLHttpRequest",
+   "ref": "YabanciDizi"
   },
   "hdfilmcehennemi.nl": {
    "name": "HDFilmCehennemi",
@@ -2487,7 +2514,8 @@
     }
    ],
    "aesKeys": [],
-   "note": "Arama JSON {results:[html]}; oynatıcı rapidrame: anahtar+dizi çözücü, Rhino, /video/ah/ hash POST; nav sekmeleri /video/ → .mobi alanı"
+   "note": "Arama JSON {results:[html]}; oynatıcı rapidrame: anahtar+dizi çözücü, Rhino, /video/ah/ hash POST; nav sekmeleri /video/ → .mobi alanı",
+   "ref": "HDFilmCehennemi"
   },
   "donkey.to": {
    "name": "Donkey",
