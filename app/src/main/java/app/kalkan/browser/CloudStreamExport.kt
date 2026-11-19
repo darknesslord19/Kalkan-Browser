@@ -234,6 +234,17 @@ private fun MainActivity.buildCsZip(
                     "@@COUNT@@" to apiEps.size.toString()
                 )
                 // ---- Sayfa analizi ve video raporu ile seçicileri doldur
+                // Canlı yakalanan akış adaylarını (kullanıcı videoyu oynatırken) ölç: gerçek filmi seç, reklam/kısa klipleri ele
+                val hostBase = host.removePrefix("www.")
+                val mediaCand = eps.map { it.url }.filter { u ->
+                    if (!u.startsWith("http")) return@filter false
+                    val up = Uri.parse(u)
+                    val path = up.path.orEmpty()
+                    Regex("(?i)\\.(m3u8|mp4)(\\?|$)|/master\\.txt").containsMatchIn(u) ||
+                        (path.length > 40 && Regex("(?i)/(m3u8?|hls|list|playlist|stream|manifest|master|process)/").containsMatchIn(path) &&
+                            up.host?.removePrefix("www.")?.endsWith(hostBase) != true)
+                }.distinct().take(24)
+                if (mediaCand.isNotEmpty()) try { CsMedia.analyze(mediaCand, ua, origin, host) } catch (_: Exception) { }
                 val hints = CsHints.load(host)
                 val report = CsVideo.analyze(t, hints, ua)
                 val list = hints.optJSONObject("list")
