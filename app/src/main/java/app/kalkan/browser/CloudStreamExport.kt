@@ -267,6 +267,7 @@ private fun MainActivity.buildCsZip(
                 val pages = StringBuilder("        \"\$mainUrl/\" to \"Ana sayfa\",")
                 if (nav != null) for (i in 0 until minOf(nav.length(), 8)) {
                     val o = nav.optJSONObject(i) ?: continue
+                    if (Regex("(?i)^(en iyiler|listeler|kategoriler|türler|turler|menü|menu)$").matches(o.optString("name").trim())) continue
                     pages.append("\n        \"\$mainUrl").append(CsGen.ks(o.optString("path")).trimEnd('/')).append("/\" to \"")
                         .append(CsGen.ks(o.optString("name"))).append("\",")
                 }

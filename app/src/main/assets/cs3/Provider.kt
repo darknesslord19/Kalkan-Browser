@@ -52,6 +52,9 @@ class @@NAME@@Provider : MainAPI() {
     private val badPath = Regex("(?i)/(oyuncu|actor|cast|yonetmen|director|etiket|tag|author|yazar|user|uye|login|register|iletisim|contact|category|kategori|yil|ulke|page)(/|$)")
 
     /** Seçici işe yaramazsa ya da oyuncu/etiket gibi yanlış bağlantılar dönerse, görselli film bağlantılarını kendisi bulur. */
+    private fun inMenu(a: org.jsoup.nodes.Element): Boolean =
+        a.parents().any { p -> p.tagName() in setOf("nav", "header", "footer", "aside") || Regex("(?i)(^|[ _-])(menu|navbar|nav|sidebar|dropdown|mega)([ _-]|$)").containsMatchIn(p.className()) }
+
     private fun findCards(doc: org.jsoup.nodes.Document): List<SearchResponse> {
         val host = try { java.net.URI(mainUrl).host.removePrefix("www.") } catch (_: Exception) { "" }
         fun ok(r: SearchResponse): Boolean = try {
@@ -59,7 +62,8 @@ class @@NAME@@Provider : MainAPI() {
         } catch (_: Exception) { false }
         val primary = doc.select(cardSelector).mapNotNull { it.toSearchResult() }.distinctBy { it.url }.filter { ok(it) }
         if (primary.size >= 3) return primary
-        val generic = doc.select("a[href]:has(img)").mapNotNull { it.toSearchResult() }.distinctBy { it.url }.filter { ok(it) }
+        val generic0 = doc.select("a[href]:has(img)").filter { !inMenu(it) }.mapNotNull { it.toSearchResult() }.distinctBy { it.url }.filter { ok(it) }
+        val generic = if (generic0.size >= 3) generic0 else doc.select("a[href]:has(img)").mapNotNull { it.toSearchResult() }.distinctBy { it.url }.filter { ok(it) }
         return if (generic.size > primary.size) generic else primary
     }
 
@@ -560,6 +564,7 @@ class @@NAME@@Provider : MainAPI() {
         }
         // 2) Tekrar eden bağlantı grubu (görselsiz de olabilir)
         val links = doc.select("a[href]").filter { a ->
+            if (inMenu(a)) return@filter false
             val h = fixUrlNull(a.attr("href")) ?: return@filter false
             val u = runCatching { java.net.URI(h) }.getOrNull() ?: return@filter false
             (u.host ?: "").contains(brand, true) && (u.path ?: "").length > 3 && !badPath.containsMatchIn(u.path ?: "") &&
@@ -578,7 +583,8 @@ class @@NAME@@Provider : MainAPI() {
                 val poster = listOf("data-src", "data-original", "data-lazy-src", "src").map { img?.attr(it).orEmpty() }.firstOrNull { it.isNotBlank() && !it.startsWith("data:") } ?: bg
                 newMovieSearchResponse(title, href, TvType.Movie) { this.posterUrl = fixUrlNull(poster) }
             }.distinctBy { it.url }
-            if (res.size >= 3) return res
+            val withPic = res.count { !it.posterUrl.isNullOrBlank() }
+            if (res.size >= 3 && withPic * 10 >= res.size * 6) return res
         }
         return emptyList()
     }
