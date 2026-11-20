@@ -71,8 +71,8 @@ private class RingView(c: Context, private val row: AuditRow, private val col: I
             txt.color = col; txt.textSize = 15f * d
             cv.drawText(sym, width / 2f, cy - (txt.ascent() + txt.descent()) / 2f, txt)
         } else {
-            txt.color = if (st == St.WAIT) 0xFF8A8F98.toInt() else accent; txt.textSize = 9.5f * d
-            cv.drawText(p.toString(), width / 2f, cy - (txt.ascent() + txt.descent()) / 2f, txt)
+            txt.color = if (st == St.WAIT) 0xFF8A8F98.toInt() else accent; txt.textSize = 9f * d
+            cv.drawText("%" + p, width / 2f, cy - (txt.ascent() + txt.descent()) / 2f, txt)
         }
         if (st == St.RUN) postInvalidateOnAnimation()
     }
@@ -135,14 +135,22 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
     }
     private var dlg: AlertDialog? = null
     private var tracked: List<AuditRow>? = null
+    private var elapsedStart = System.currentTimeMillis()
+    private var frozenSecs = -1L
     private val tick = android.os.Handler(android.os.Looper.getMainLooper())
     private val ticker = object : Runnable {
         override fun run() {
             val r = tracked
             if (r != null && r.isNotEmpty() && dlg != null) {
                 val avg = r.sumOf { it.pct() } / r.size
+                val allDone = r.all { it.state >= St.OK }
+                if (allDone && frozenSecs < 0) frozenSecs = (System.currentTimeMillis() - elapsedStart) / 1000
+                val secs = if (frozenSecs >= 0) frozenSecs else (System.currentTimeMillis() - elapsedStart) / 1000
+                val failed = r.any { it.state == St.FAIL }
                 bar.progress = avg * 10
-                pctV.text = "%$avg"
+                bar.progressDrawable?.setTint(if (allDone) (if (failed) 0xFFE5484D.toInt() else 0xFF2E9E5B.toInt()) else accent)
+                pctV.text = "%$avg" + (if (allDone) (if (failed) "  ✕" else "  ✓") else "") + "  ·  %d:%02d".format(secs / 60, secs % 60)
+                pctV.setTextColor(if (allDone) (if (failed) 0xFFE5484D.toInt() else 0xFF2E9E5B.toInt()) else fg)
             }
             if (dlg != null) tick.postDelayed(this, 200)
         }
@@ -159,6 +167,7 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
     }
 
     fun show() {
+        elapsedStart = System.currentTimeMillis(); frozenSecs = -1L
         dlg = MaterialAlertDialogBuilder(act).setView(ScrollView(act).apply { addView(root) }).setCancelable(false).create().also { it.show(); tick.post(ticker) }
     }
 
@@ -222,6 +231,7 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
 
     fun render(rows: List<AuditRow>) {
         tracked = rows
+        if (rows.any { it.state < St.OK }) frozenSecs = -1L
         rowsBox.removeAllViews()
         for (r in rows) {
             val line = LinearLayout(act).apply {

@@ -217,7 +217,23 @@ private fun MainActivity.buildCsZip(
     name: String, site: String, author: String, lang: String, desc: String, types: List<String>
 ) {
     ensureStorage {
-        toast("Eklenti iskeleti hazırlanıyor…")
+        val prow = listOf(
+            AuditRow("a", "Analiz sonuçları işleniyor", 3000L),
+            AuditRow("b", "Kaynak kod üretiliyor", 6000L),
+            AuditRow("c", "Çözücüler ve bilgi bankası ekleniyor", 4000L),
+            AuditRow("d", "ZIP paketleniyor ve kaydediliyor", 4000L)
+        )
+        val ppanel = CsPanel(this, "CS3 paketi hazırlanıyor", host)
+        var pcur = 0
+        fun adv(n: Int) {
+            runOnUiThread {
+                pcur = n
+                for ((i, r) in prow.withIndex()) r.state = when { i < n -> St.OK; i == n -> St.RUN; else -> St.WAIT }
+                ppanel.render(prow)
+            }
+        }
+        ppanel.setFooter("Tarama sonuçları eklenti koduna işleniyor; birkaç saniye sürer.")
+        ppanel.show(); adv(0)
         val ua = t.webView.settings.userAgentString ?: "Mozilla/5.0"
         Thread {
             var zipBytes: ByteArray? = null
@@ -256,6 +272,7 @@ private fun MainActivity.buildCsZip(
                             up.host?.removePrefix("www.")?.endsWith(hostBase) != true)
                 }.distinct().take(24)
                 if (mediaCand.isNotEmpty()) try { CsMedia.analyze(mediaCand, ua, origin, host) } catch (_: Exception) { }
+                adv(1)
                 val brainNote = try { CsBrain.apply(this, host) } catch (_: Exception) { null }
                 val hints = CsHints.load(host)
                 val report = CsVideo.analyze(t, hints, ua)
@@ -423,6 +440,7 @@ private fun MainActivity.buildCsZip(
                 tokens["@@CRYPTO_CALL@@"] = if (report.passes.isNotEmpty()) tpl("crypto_call.txt") else ""
                 tokens["@@CRYPTO_FUN@@"] = if (report.passes.isNotEmpty()) tpl("crypto_fun.txt") else ""
 
+                adv(2)
                 // Hazır Türk oynatıcı çözücüleri (API modu dışında): dosyaları ekle, Plugin'e kaydet
                 val extPack = if (tmdbBase.isEmpty()) try { CsBrain.extPack(this, pkg) } catch (_: Exception) { null } else null
                 tokens["@@EXTRACTORS@@"] = extPack?.second?.joinToString("") { "        registerExtractorAPI($it())\n" }.orEmpty()
@@ -451,6 +469,7 @@ private fun MainActivity.buildCsZip(
                         files["$root/$name/ENDPOINTS.md"] = "Bu eklenti Darkness bilgi bankasındaki çalışan referans kaynaktan üretildi ($host).\n"
                     }
                 } catch (_: Exception) { }
+                adv(3)
                 val bos = ByteArrayOutputStream()
                 ZipOutputStream(bos).use { z ->
                     for ((path, content) in files) {
@@ -468,18 +487,26 @@ private fun MainActivity.buildCsZip(
                 "İskelet oluşturulamadı: ${e.message}"
             }
             runOnUiThread {
-                MaterialAlertDialogBuilder(this)
-                    .setTitle("CloudStream iskeleti")
-                    .setMessage(msg + if (msg.startsWith("Kaydedildi"))
-                        "\n\n\u201CDerle ve .cs3 indir\u201D ile Darkness ZIP'i GitHub'a yükleyip derletir ve .cs3 dosyasını otomatik indirir."
-                    else "")
-                    .setPositiveButton("Tamam", null)
-                    .setNeutralButton("İndirilenler") { _, _ -> openSystemDownloads() }
-                    .apply {
-                        val zb = zipBytes
-                        if (zb != null) setNegativeButton("Derle ve .cs3 indir") { _, _ -> ghBuildZip(zb, name, zipFileName) }
-                    }
-                    .show()
+                ppanel.clearButtons()
+                val zb = zipBytes
+                if (zb != null) {
+                    prow.forEach { it.state = St.OK }
+                    prow[3].note = "$zipFileName · İndirilenler/Kalkan"
+                    ppanel.setTitle("CS3 paketi hazır", host)
+                    ppanel.setChip("ZIP hazır", 0xFF2E9E5B.toInt())
+                    ppanel.render(prow)
+                    ppanel.setFooter(msg + "\n\u201CDerle ve .cs3 indir\u201D ZIP'i GitHub'a yükleyip derletir ve .cs3 dosyasını otomatik indirir.")
+                    ppanel.addButton("Derle ve .cs3 indir", primary = true) { ppanel.dismiss(); ghBuildZip(zb, name, zipFileName) }
+                    ppanel.addButton("İndirilenler") { openSystemDownloads() }
+                    ppanel.addButton("Kapat") { ppanel.dismiss() }
+                } else {
+                    prow.forEachIndexed { i, r -> r.state = if (i < pcur) St.OK else if (i == pcur) St.FAIL else St.WAIT }
+                    ppanel.setTitle("Paket oluşturulamadı", host)
+                    ppanel.setChip("Hata", 0xFFE5484D.toInt())
+                    ppanel.render(prow)
+                    ppanel.setFooter(msg)
+                    ppanel.addButton("Kapat", primary = true) { ppanel.dismiss() }
+                }
             }
         }.start()
     }
