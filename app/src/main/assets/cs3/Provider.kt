@@ -718,7 +718,55 @@ class @@NAME@@Provider : MainAPI() {
 
     // ---- Video çözümleme (sırayla): bilinen barındırıcılar, iç içe iframe'ler (2 seviye),
     // ---- packed JS, CryptoJS AES blokları, base64 gömülü linkler, doğrudan m3u8/mp4
+    /** Bulunan akışları süreyle süzer: dizi bölümü ~20 dk+, film ~50 dk+ ; reklam/fragman/kısa klipler elenir (süre okunamayanlar geçer). */
     override suspend fun loadLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val got = ArrayList<ExtractorLink>()
+        val ok = loadLinksRaw(data, isCasting, subtitleCallback) { got.add(it) }
+        if (got.isEmpty()) return ok
+        val series = Regex("(?i)(bolum|b\u00f6l\u00fcm|episode|sezon|season|\\d+x\\d+|/dizi)").containsMatchIn(data)
+        val minSecs = if (series) MIN_EP_SECS else MIN_MOVIE_SECS
+        val uniq = got.distinctBy { it.url }
+        val measured = uniq.mapIndexed { i, l -> l to (if (i < 12) linkSecs(l) else null) }
+        val keep = measured.filter { (_, s) -> s == null || s >= minSecs }.map { it.first }
+        if (keep.isNotEmpty()) { keep.forEach(callback); return true }
+        // Hiçbiri yeterince uzun değil: en uzununu (en az 10 dk) ver, yoksa hiçbir şey verme (reklam/fragman gösterme)
+        val best = measured.filter { it.second != null }.maxByOrNull { it.second!! }
+        if (best != null && best.second!! >= 600.0) { callback(best.first); return true }
+        return false
+    }
+
+    private val MIN_MOVIE_SECS = @@MIN_MOVIE@@
+    private val MIN_EP_SECS = @@MIN_EP@@
+
+    /** Akışın süresi (sn); okunamazsa null. HLS: oynatma listesi toplamı; MP4: boyuttan tahmin. */
+    private suspend fun linkSecs(l: ExtractorLink): Double? = try {
+        val hd = l.headers + (if (l.referer.isNotBlank()) mapOf("Referer" to l.referer) else emptyMap())
+        if (l.type == ExtractorLinkType.M3U8) {
+            var body = app.get(l.url, headers = hd, timeout = 8000).text
+            if (!body.trimStart().startsWith("#EXTM3U")) null else {
+                if (body.contains("#EXT-X-STREAM-INF")) {
+                    val v = body.lines().firstOrNull { it.isNotBlank() && !it.startsWith("#") }
+                    if (v != null) {
+                        val vu = if (v.startsWith("http")) v else java.net.URI(l.url).resolve(v).toString()
+                        body = app.get(vu, headers = hd, timeout = 8000).text
+                    }
+                }
+                if (!body.contains("#EXT-X-ENDLIST")) null
+                else Regex("#EXTINF:([0-9.]+)").findAll(body).sumOf { it.groupValues[1].toDoubleOrNull() ?: 0.0 }.takeIf { it > 0 }
+            }
+        } else {
+            val r = app.get(l.url, headers = hd + mapOf("Range" to "bytes=0-1"), timeout = 8000)
+            val total = r.headers["Content-Range"]?.substringAfter('/')?.toLongOrNull() ?: r.headers["Content-Length"]?.toLongOrNull()
+            total?.takeIf { it > 1024 }?.let { it / 400000.0 }
+        }
+    } catch (_: Exception) { null }
+
+    private suspend fun loadLinksRaw(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,

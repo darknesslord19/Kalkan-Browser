@@ -31,7 +31,7 @@ internal object CsMedia {
             } catch (_: Exception) { return null }
         }
         val ms = list.take(12).mapNotNull { mediaOf(it) }
-        val long = ms.filter { it.secs >= 600.0 || it.mb >= 40.0 }
+        val long = ms.filter { it.secs >= 1200.0 || it.mb >= 80.0 }
         val best = long.maxByOrNull { if (it.secs > 0) it.secs else it.mb * 10 }
         val shorts = ms.filter { it !in long }
         val bestHost = best?.let { Uri.parse(it.url).host.orEmpty() }

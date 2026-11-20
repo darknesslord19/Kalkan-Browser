@@ -258,12 +258,14 @@ private fun MainActivity.buildCsZip(
                     "@@SEARCH_URL@@" to searchUrl,
                     "@@SEARCH_NOTE@@" to searchNote.replace("*/", "* /"),
                     "@@DATE@@" to date,
-                    "@@COUNT@@" to apiEps.size.toString()
+                    "@@COUNT@@" to apiEps.size.toString(),
+                    "@@MIN_MOVIE@@" to "3000.0",
+                    "@@MIN_EP@@" to "1200.0"
                 )
                 // ---- Sayfa analizi ve video raporu ile seçicileri doldur
                 // Canlı yakalanan akış adaylarını (kullanıcı videoyu oynatırken) ölç: gerçek filmi seç, reklam/kısa klipleri ele
                 val hostBase = host.removePrefix("www.")
-                val mediaCand = eps.map { it.url }.filter { u ->
+                val mediaCand0 = eps.map { it.url }.filter { u ->
                     if (!u.startsWith("http")) return@filter false
                     val up = Uri.parse(u)
                     val path = up.path.orEmpty()
@@ -271,6 +273,10 @@ private fun MainActivity.buildCsZip(
                         (path.length > 40 && Regex("(?i)/(m3u8?|hls|list|playlist|stream|manifest|master|process)/").containsMatchIn(path) &&
                             up.host?.removePrefix("www.")?.endsWith(hostBase) != true)
                 }.distinct().take(24)
+                // Media Sniffer'ın yakaladığı tüm medya/akış linkleri de ölçülür (hangi CDN gerçek film, hangisi reklam)
+                val sniffed = synchronized(t.res) { t.res.values.toList() }
+                    .filter { (it.isMedia || it.isStream) && it.url.startsWith("http") }.map { it.url }
+                val mediaCand = (sniffed + mediaCand0).distinct().take(30)
                 if (mediaCand.isNotEmpty()) try { CsMedia.analyze(mediaCand, ua, origin, host) } catch (_: Exception) { }
                 adv(1)
                 val brainNote = try { CsBrain.apply(this, host) } catch (_: Exception) { null }
