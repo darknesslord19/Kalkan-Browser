@@ -608,20 +608,18 @@ internal fun MainActivity.csScanPanel(t: MainActivity.Tab, continueLabel: String
     val ua = t.webView.settings.userAgentString ?: "Mozilla/5.0"
     val rows = listOf(
         AuditRow("home", "Ana sayfa kartları"),
-        AuditRow("cats", "Kategoriler ve sayfalama"),
+        AuditRow("cats", "Kategoriler ve sayfalama", 12000L),
         AuditRow("poster", "Afişler"),
         AuditRow("detail", "Film / dizi detayı"),
         AuditRow("episodes", "Bölüm listesi"),
         AuditRow("player", "Oynatıcı ve video kaynağı"),
-        AuditRow("video", "Video akışı (gerçek istek)"),
+        AuditRow("video", "Video akışı (gerçek istek)", 16000L),
         AuditRow("search", "Arama"),
         AuditRow("net", "Koruma ve JSON uçları")
     )
     val panel = CsPanel(this, "Eklenti hazırlığı", host)
     var done = false
     fun paint() {
-        val doneN = rows.count { it.state != St.WAIT && it.state != St.RUN }
-        panel.setProgress(doneN / rows.size.toFloat(), "${doneN}/${rows.size} adım")
         panel.render(rows)
     }
     fun start() {

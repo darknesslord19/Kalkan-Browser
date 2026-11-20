@@ -27,9 +27,55 @@ object St {
     const val FAIL = 5
 }
 
-class AuditRow(val key: String, val title: String) {
+class AuditRow(val key: String, val title: String, val tau: Long = 6000L) {
     @Volatile var state = St.WAIT
     @Volatile var note = ""
+    @Volatile private var t0 = 0L
+
+    /** Satır yüzdesi: bekleyen 0, biten 100, çalışan ise zamanla %95'e yaklaşan yumuşak eğri. */
+    fun pct(): Int = when (state) {
+        St.WAIT -> { t0 = 0L; 0 }
+        St.RUN -> {
+            val now = System.currentTimeMillis()
+            if (t0 == 0L) t0 = now
+            (95.0 * (1.0 - Math.exp(-(now - t0).toDouble() / tau))).toInt().coerceIn(1, 95)
+        }
+        else -> { t0 = 0L; 100 }
+    }
+}
+
+/** Halka biçimli ilerleme göstergesi: içinde yüzde, %100 olunca durum simgesi (✓ / ✦ / ! / ✕). */
+private class RingView(c: Context, private val row: AuditRow, private val col: Int, private val accent: Int, private val sym: String) : View(c) {
+    private val d = c.resources.displayMetrics.density
+    private val track = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE; strokeWidth = 3.2f * d; color = (0x33000000 and 0xFF000000.toInt()) or 0x8A8F98
+        alpha = 70
+    }
+    private val arc = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE; strokeWidth = 3.2f * d; strokeCap = android.graphics.Paint.Cap.ROUND
+    }
+    private val txt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = android.graphics.Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
+    }
+    private val box = android.graphics.RectF()
+    override fun onDraw(cv: android.graphics.Canvas) {
+        val p = row.pct()
+        val st = row.state
+        val pad = 3.2f * d
+        box.set(pad, pad, width - pad, height - pad)
+        cv.drawOval(box, track)
+        arc.color = if (st == St.RUN || st == St.WAIT) accent else col
+        cv.drawArc(box, -90f, 360f * p / 100f, false, arc)
+        val cy = height / 2f
+        if (p >= 100) {
+            txt.color = col; txt.textSize = 15f * d
+            cv.drawText(sym, width / 2f, cy - (txt.ascent() + txt.descent()) / 2f, txt)
+        } else {
+            txt.color = if (st == St.WAIT) 0xFF8A8F98.toInt() else accent; txt.textSize = 9.5f * d
+            cv.drawText(p.toString(), width / 2f, cy - (txt.ascent() + txt.descent()) / 2f, txt)
+        }
+        if (st == St.RUN) postInvalidateOnAnimation()
+    }
 }
 
 private class MaxHeightScroll(c: Context, private val maxH: Int) : ScrollView(c) {
@@ -62,7 +108,7 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
         progressDrawable?.setTint(accent)
     }
     private val pctV = TextView(act).apply {
-        textSize = 12f; setTextColor(fg); alpha = 0.7f; gravity = Gravity.END
+        textSize = 15f; setTypeface(typeface, Typeface.BOLD); setTextColor(fg); alpha = 0.85f; gravity = Gravity.END
         setPadding(0, act.dp(4), 0, act.dp(10))
     }
     private val chip = TextView(act).apply {
@@ -88,6 +134,19 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
         setPadding(0, act.dp(14), 0, 0)
     }
     private var dlg: AlertDialog? = null
+    private var tracked: List<AuditRow>? = null
+    private val tick = android.os.Handler(android.os.Looper.getMainLooper())
+    private val ticker = object : Runnable {
+        override fun run() {
+            val r = tracked
+            if (r != null && r.isNotEmpty() && dlg != null) {
+                val avg = r.sumOf { it.pct() } / r.size
+                bar.progress = avg * 10
+                pctV.text = "%$avg"
+            }
+            if (dlg != null) tick.postDelayed(this, 200)
+        }
+    }
 
     init {
         root.addView(titleV)
@@ -100,10 +159,10 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
     }
 
     fun show() {
-        dlg = MaterialAlertDialogBuilder(act).setView(ScrollView(act).apply { addView(root) }).setCancelable(false).create().also { it.show() }
+        dlg = MaterialAlertDialogBuilder(act).setView(ScrollView(act).apply { addView(root) }).setCancelable(false).create().also { it.show(); tick.post(ticker) }
     }
 
-    fun dismiss() { try { dlg?.dismiss() } catch (_: Exception) {} }
+    fun dismiss() { tick.removeCallbacks(ticker); try { dlg?.dismiss() } catch (_: Exception) {}; dlg = null }
 
     fun setTitle(t: String, sub: String? = null) {
         titleV.text = t
@@ -111,8 +170,10 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
     }
 
     fun setProgress(fraction: Float, label: String = "") {
+        // Satırlar izleniyorsa yüzdeyi ticker hesaplar (tam %100'e kadar); yalnız satırsız kullanımda elle
+        if (tracked != null) return
         bar.progress = (fraction.coerceIn(0f, 1f) * 1000).toInt()
-        pctV.text = label.ifEmpty { "%${(fraction * 100).toInt()}" }
+        pctV.text = "%${(fraction * 100).toInt()}"
     }
 
     fun setFooter(text: String?) {
@@ -160,6 +221,7 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
     }
 
     fun render(rows: List<AuditRow>) {
+        tracked = rows
         rowsBox.removeAllViews()
         for (r in rows) {
             val line = LinearLayout(act).apply {
@@ -167,22 +229,8 @@ internal class CsPanel(private val act: MainActivity, title: String, subtitle: S
                 setPadding(0, act.dp(7), 0, act.dp(7))
             }
             val c = color(r.state)
-            val badge = FrameLayout(act).apply {
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor((c and 0x00FFFFFF) or 0x26000000)
-                }
-            }
-            if (r.state == St.RUN) {
-                badge.addView(ProgressBar(act).apply { indeterminateTintList = android.content.res.ColorStateList.valueOf(accent) },
-                    FrameLayout.LayoutParams(act.dp(18), act.dp(18), Gravity.CENTER))
-            } else {
-                badge.addView(TextView(act).apply {
-                    text = symbol(r.state); setTextColor(c); textSize = 14f
-                    setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER
-                }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-            }
-            line.addView(badge, LinearLayout.LayoutParams(act.dp(30), act.dp(30)).apply { rightMargin = act.dp(12); topMargin = act.dp(2) })
+            val badge = RingView(act, r, c, accent, symbol(r.state))
+            line.addView(badge, LinearLayout.LayoutParams(act.dp(38), act.dp(38)).apply { rightMargin = act.dp(12); topMargin = act.dp(1) })
             val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             col.addView(TextView(act).apply {
                 text = r.title; textSize = 15f; setTypeface(typeface, Typeface.BOLD); setTextColor(fg)

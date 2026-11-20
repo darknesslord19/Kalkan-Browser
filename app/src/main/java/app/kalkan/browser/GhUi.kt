@@ -45,9 +45,9 @@ internal fun MainActivity.ghBuildZip(zip: ByteArray, plugin: String, zipName: St
     }
     val rows = listOf(
         AuditRow("conn", "GitHub bağlantısı"),
-        AuditRow("up", "Eklenti paketi yükleniyor"),
-        AuditRow("build", "Derleniyor (Kotlin → .cs3)"),
-        AuditRow("get", "Yayınlama ve indirme")
+        AuditRow("up", "Eklenti paketi yükleniyor", 9000L),
+        AuditRow("build", "Derleniyor (Kotlin → .cs3)", 80000L),
+        AuditRow("get", "Yayınlama ve indirme", 8000L)
     )
     val panel = CsPanel(this, "Derleniyor", plugin)
     var cancel = false
