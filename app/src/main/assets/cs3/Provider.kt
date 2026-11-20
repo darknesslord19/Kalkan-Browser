@@ -103,6 +103,9 @@ class @@NAME@@Provider : MainAPI() {
     private val streamRegex = Regex("(?i)\\.(m3u8|mp4)(\\?|\\$)|/master\\.txt")
     private val streamHint = "@@STREAM_RE@@"
     private val sniffRegex = Regex("(?i)https?://[^\\s\"'<>\\\\]+/(?:m3u8?|hls|playlist|manifest|master|list)/[^\\s\"'<>\\\\]{20,}" + (if (streamHint.isNotBlank()) "|(?:https?://)?" + streamHint + "[^\\s\"'<>\\\\]*" else ""))
+    /** WebView son çaresinde oynat düğmelerine tıklar ve videoyu başlatır (tembel yüklenen oynatıcılar için). */
+    private val playScript = "(function(){var sel=['.jw-icon-display','.vjs-big-play-button','.plyr__control--overlay','[class*=play-btn]','[class*=playbtn]','[class*=play_btn]','[class*=playButton]','.play','.btn-play','[aria-label*=Play]','[data-player]','.player-tab','.tab-player a','[class*=poster]','[class*=cover]'];function go(){sel.forEach(function(s){document.querySelectorAll(s).forEach(function(e){try{e.click()}catch(x){}})});document.querySelectorAll('video').forEach(function(v){try{v.muted=true;v.play()}catch(x){}})}go();setInterval(go,1500);})()"
+
     private val watchRegex = Regex("(?i)^(?!.*(?:doubleclick|googlesyndication|/ads?/|[._-]ads?[._/-]|preroll|promo|trailer|fragman|teaser|twimg|fbcdn)).*(?:\\.(m3u8|mp4)(\\?|\\$)|/master\\.txt" + (if (streamHint.isNotBlank()) "|" + streamHint else "") + ")")
     private val notMedia = Regex("(?i)\\.(js|css|png|jpe?g|webp|gif|svg|vtt|srt|json|woff2?)(\\?|\\$)")
 
@@ -778,7 +781,7 @@ class @@NAME@@Provider : MainAPI() {
         if (!ok) {
             // Son çare: sayfayı gerçek bir WebView'da oynatıp ağdaki akış isteğini yakala
             val got = runCatching {
-                app.get(data, referer = mainUrl, interceptor = com.lagradost.cloudstream3.network.WebViewResolver(watchRegex)).url
+                app.get(data, referer = mainUrl, interceptor = com.lagradost.cloudstream3.network.WebViewResolver(watchRegex, script = playScript, scriptCallback = { }, timeout = 30000L)).url
             }.getOrNull()
             if (got != null && watchRegex.containsMatchIn(got) && (emitStreams(got, data, callback) || sniffHls(got, data, callback))) ok = true
         }
@@ -850,8 +853,8 @@ class @@NAME@@Provider : MainAPI() {
         // iframe / data-* gömülü oynatıcılar
         if (depth < 2) {
             val d = doc ?: org.jsoup.Jsoup.parse(text)
-            val attrs = listOf("src", "data-src", "data-embed", "data-video", "data-player", "data-url")
-            val frames = d.select("iframe, [data-embed], [data-video], [data-player], nav.card-nav a, a.card-nav-link, button.card-nav-link, [data-url]")
+            val attrs = listOf("src", "data-src", "data-lazy-src", "data-embed", "data-embed-url", "data-iframe", "data-video", "data-player", "data-url", "data-link", "data-source", "data-frame", "data-file")
+            val frames = d.select("iframe, [data-embed], [data-embed-url], [data-iframe], [data-lazy-src], [data-video], [data-player], [data-link], [data-source], [data-frame], nav.card-nav a, a.card-nav-link, button.card-nav-link, [data-url]")
                 .mapNotNull { el -> attrs.firstNotNullOfOrNull { k -> el.attr(k).takeIf { it.isNotBlank() } } }
                 .map { fixUrl(it) }.distinct()
             for (frame in (frames + dooPlayEmbeds(d, referer)).distinct()) {
@@ -862,7 +865,7 @@ class @@NAME@@Provider : MainAPI() {
                 // (karmaşık/gizlenmiş oynatıcı betiklerini kendimiz çözmek yerine tarayıcıya çözdürür)
                 if (depth == 0 && !found) {
                     val got = runCatching {
-                        app.get(frame, referer = referer, interceptor = com.lagradost.cloudstream3.network.WebViewResolver(watchRegex)).url
+                        app.get(frame, referer = referer, interceptor = com.lagradost.cloudstream3.network.WebViewResolver(watchRegex, script = playScript, scriptCallback = { }, timeout = 30000L)).url
                     }.getOrNull()
                     if (got != null && watchRegex.containsMatchIn(got) && (emitStreams(got, frame, callback) || sniffHls(got, frame, callback))) found = true
                 }
