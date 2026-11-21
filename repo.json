@@ -1,0 +1,6 @@
+{
+  "name": "Darkness Eklentileri",
+  "description": "Darkness Tarayıcı ile oluşturulan CloudStream eklentileri",
+  "manifestVersion": 1,
+  "pluginLists": ["https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/plugins.json"]
+}

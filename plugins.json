@@ -1,0 +1,338 @@
+[
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=ddizi.tel&sz=%size%",
+    "fileHash": "sha256-0bc407332e8cd2382d670efe067b1311d9dd6e3e2730b3b20a082687f2bfbcce",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 32775,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "csprofesor"
+    ],
+    "tvTypes": [
+      "TvSeries"
+    ],
+    "version": 2,
+    "internalName": "Ddizi",
+    "description": "Ddizi, dizi izle, dizi seyret, ddizi.tel - Güncel ve eski dizileri en iyi görüntü kalitesiyle bulabileceğiniz dizi izleme sitesi.",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Ddizi.cs3",
+    "name": "Ddizi"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=www.dizigom.love&sz=%size%",
+    "fileHash": "sha256-92bac3a8e5a6edaac7489f4568e1d3ef81b439e7899537b0917f158c8405d573",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 37953,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "csprofesor"
+    ],
+    "tvTypes": [
+      "TvSeries",
+      "Movie",
+      "AsianDrama"
+    ],
+    "version": 20,
+    "internalName": "Dizigom",
+    "description": "Türkçe altyazılı yabancı dizi izle, Tüm yabancı, kore, netflix dizilerin yeni ve eski sezonlarını orijinal dilinde dizigom1 alt yazılı film izleyebilir, sadece türkçe altyazılı en iyi yabancı diziler ve filmler hakkında yorum yapabilirsiniz.",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Dizigom.cs3",
+    "name": "Dizigom"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=dizipal2224.com&sz=%size%",
+    "fileHash": "sha256-3c1184edadb7e1c896c6f25e41f52f69369ab7a25f291f37a2c5e42edb706ec6",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 59273,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "csprofesor"
+    ],
+    "tvTypes": [
+      "TvSeries",
+      "Movie"
+    ],
+    "version": 120,
+    "internalName": "Dizipal2150",
+    "description": "en yeni dizileri güvenli ve hızlı şekilde sunar.",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Dizipal2150.cs3",
+    "name": "Dizipal2150"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=dizitivi.org&sz=%size%",
+    "fileHash": "sha256-d93aecc0e09f642711dceeb38abfe640e63ec8ad2651d3589d6c66d7473f2737",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 162689,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "Darkness"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "Dizitivi",
+    "description": "dizitivi.org için CloudStream eklentisi",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Dizitivi.cs3",
+    "name": "Dizitivi"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=donkey.to&sz=%size%",
+    "fileHash": "sha256-6cd476a23d9aebe04c49af48c7a9c3505da31e1a851fb145f130dd272a43bb34",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 22979,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "Kalkan"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "Donkey",
+    "description": "donkey.to için CloudStream eklentisi",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Donkey.cs3",
+    "name": "Donkey"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=filmmakinesi.to&sz=%size%",
+    "fileHash": "sha256-d3235aa53342d5109d64f4203dfd8d6a4ff3acfd9bed09e180fc94c93ebac24d",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 40659,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "csprofesor"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 96,
+    "internalName": "Filmmakinesi",
+    "description": "Film Makinesi sağlayıcısı",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Filmmakinesi.cs3",
+    "name": "Filmmakinesi"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=fullhdfilmizlesene.now&sz=%size%",
+    "fileHash": "sha256-1f0d0959ce5ae5656801af5b8bff01f8c220aade61e3f1d1f7b2885443eb9120",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 163874,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "Darkness"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "Fullhdfilmizlesene",
+    "description": "www.fullhdfilmizlesene.now için CloudStream eklentisi",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Fullhdfilmizlesene.cs3",
+    "name": "Fullhdfilmizlesene"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=fullhdfilmizlesene.now&sz=%size%",
+    "fileHash": "sha256-30c1d520e5e57a8de650643faadda766153dd1af75d7d91eb886f847e1039fe9",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 163275,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "Kalkan"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "Fullhdfilmizlesenex",
+    "description": "www.fullhdfilmizlesene.now için CloudStream eklentisi",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Fullhdfilmizlesenex.cs3",
+    "name": "Fullhdfilmizlesenex"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=hdabla.net&sz=%size%",
+    "fileHash": "sha256-36e105e1c776de6c04b3242ea8cf41242c75ef4469cea38d13e899d3710c6ac9",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 163589,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "Darkness"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "Hdabla",
+    "description": "hdabla.net için CloudStream eklentisi",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Hdabla.cs3",
+    "name": "Hdabla"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=hdfilmcehennemi.nl&sz=%size%",
+    "fileHash": "sha256-03c2e36c911b543a22ff0092998cc63bc6449ba0a9bce28b793fadbee987c854",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 49867,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "csprofesor"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "Hdfilmcehennemi",
+    "description": "HDFilmCehennemi film ve dizi sağlayıcısı",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Hdfilmcehennemi.cs3",
+    "name": "Hdfilmcehennemi"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=hdfilmdiziizle.com&sz=%size%",
+    "fileHash": "sha256-d6ceade354efde8efe8f0495e6965cbb2dd3171b80f23acd752d5e4f8a0696a9",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 164778,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "Darkness"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "Hdfilmdiziizle",
+    "description": "www.hdfilmdiziizle.com için CloudStream eklentisi",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Hdfilmdiziizle.cs3",
+    "name": "Hdfilmdiziizle"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=hdfilmdiziizle.com&sz=%size%",
+    "fileHash": "sha256-5abdc6561da99f1f7e8876c92033560a1338140442387fcc215bb475d0af977a",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 32891,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "Darkness"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "HdfilmdiziizlePc",
+    "description": "Hdfilmdiziizle PC - Film / Dizi (hdfilmdiziizle.com)",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/HdfilmdiziizlePc.cs3",
+    "name": "HdfilmdiziizlePc"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=hdfilmizle.to&sz=%size%",
+    "fileHash": "sha256-78bad659379720b8fb9b435046275d8d3229e4706cba20fd67dca86867b567fb",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 32681,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "csprofesor"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 8,
+    "internalName": "Hdfilmizle",
+    "description": "HDFilmizle ile Full HD izle, 1080p kalitede Yerli ve Yabancı filmlerle Türkçe dublaj veya Altyazı olarak kesintisiz film izlemenin tadını çıkarın.",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Hdfilmizle.cs3",
+    "name": "Hdfilmizle"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=kanald.com.tr&sz=%size%",
+    "fileHash": "sha256-97bc95e9fe7a00e3b1fdc735ccebd140f5bbd102b51846985bb0a0fbf456e1df",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 164394,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "Darkness"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "Kanald",
+    "description": "www.kanald.com.tr için CloudStream eklentisi",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Kanald.cs3",
+    "name": "Kanald"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=tavsiyefilmizle.net&sz=%size%",
+    "fileHash": "sha256-ec9c776bea4785c959786a6784b2c027a19340132426e2c8d49bef7cedfc6a6b",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 33892,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "csprofesor"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 3,
+    "internalName": "Tavsiyefilmizle",
+    "description": "TavsiyeFilmIzle - Türkçe Dublaj ve Altyazılı Filmler, Full HD Film izle.",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Tavsiyefilmizle.cs3",
+    "name": "Tavsiyefilmizle"
+  },
+  {
+    "iconUrl": "https://www.google.com/s2/favicons?domain=turkcedizi.com&sz=%size%",
+    "fileHash": "sha256-7d896ecff384e8af52b2fffcbecc8df8ea70e8f009849224137288d5a618e988",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/darknesslord19/Kalkan-Browser",
+    "fileSize": 163748,
+    "status": 1,
+    "language": "tr",
+    "authors": [
+      "Darkness"
+    ],
+    "tvTypes": [
+      "Movie",
+      "TvSeries"
+    ],
+    "version": 1,
+    "internalName": "Turkcedizi",
+    "description": "turkcedizi.com için CloudStream eklentisi",
+    "url": "https://raw.githubusercontent.com/darknesslord19/Kalkan-Browser/builds/Turkcedizi.cs3",
+    "name": "Turkcedizi"
+  }
+]
